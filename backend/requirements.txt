@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+motor
+dnspython
+sentence-transformers
+google-api-python-client
+python-dotenv
+passlib
+bcrypt
+python-jose
