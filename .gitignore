@@ -72,3 +72,6 @@ frontend/dist/
 # OS
 .DS_Store
 Thumbs.db
+
+client_secrets.json
+token.pickle

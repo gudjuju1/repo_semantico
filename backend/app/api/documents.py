@@ -1,8 +1,9 @@
-from fastapi import APIRouter, HTTPException, Depends, Header, Query
+from fastapi import APIRouter, HTTPException, Depends, Header, Query, File, UploadFile, Form
 from pydantic import BaseModel, HttpUrl
 from app.db.session import doc_teg_inf_collection
 from app.core.security import verify_control_key
 from app.services.ai_service import AIService
+from app.services.drive_service import upload_to_drive, delete_from_drive, update_drive_file
 from app.api.auth import get_current_user, require_superadmin
 from bson.objectid import ObjectId
 from app.services.log_service import registrar_log
@@ -10,14 +11,7 @@ from typing import Optional
 
 router = APIRouter()
 
-class DocumentoAcademico(BaseModel):
-    titulo: str
-    autores: list[str]
-    tutor: str
-    tipo_documento: str  # "TEG" o "Informe"
-    periodo_academico: str
-    resumen: str
-    archivo_url: HttpUrl 
+# --- MODELOS ---
 
 class DocumentoAcademicoUpdate(BaseModel):
     titulo: Optional[str] = None
@@ -28,44 +22,52 @@ class DocumentoAcademicoUpdate(BaseModel):
     resumen: Optional[str] = None
     archivo_url: Optional[HttpUrl] = None
 
+# --- ENDPOINTS ---
+
 @router.post("/upload")
 async def upload_document(
-    documento: DocumentoAcademico,
+    titulo: str = Form(...),
+    autores: str = Form(...), 
+    tutor: str = Form(...),
+    tipo_documento: str = Form(...),
+    periodo_academico: str = Form(...),
+    resumen: str = Form(...),
+    file: UploadFile = File(...),
     x_control_key: str = Header(...),
     current_user: dict = Depends(get_current_user)
 ):
-    # Verificar la Llave de Control
+    """Sube un archivo a Drive y lo registra en la DB con IA"""
     if not verify_control_key(x_control_key, current_user["llave_seguridad_hash"]):
         raise HTTPException(status_code=401, detail="Llave de Control inválida")
 
-    # 1. Combinamos el título y el resumen en una sola cadena de texto
-    texto_para_ia = f"Título: {documento.titulo}. Resumen: {documento.resumen}"
+    try:
+        content = await file.read()
+        drive_res = await upload_to_drive(content, file.filename)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al subir a Drive: {str(e)}")
 
-    # 2. Generar el embedding
     ai_service = AIService()
+    texto_para_ia = f"Título: {titulo}. Resumen: {resumen}"
     embedding_raw = await ai_service.generate_embedding(texto_para_ia)
-    
-    # 3. CONVERSIÓN CRÍTICA: De Numpy Array a Lista de Python (Evita el Error 500)
-    # Si tu AIService ya devuelve una lista, esto no hará daño, 
-    # pero si devuelve un objeto de Numpy, esto lo arregla.
-    if hasattr(embedding_raw, "tolist"):
-        vector_embedding = embedding_raw.tolist()
-    else:
-        vector_embedding = embedding_raw
+    vector_embedding = embedding_raw.tolist() if hasattr(embedding_raw, "tolist") else embedding_raw
 
-    # 4. Preparar datos para MongoDB
-    doc_data = documento.dict()
-    doc_data["archivo_url"] = str(documento.archivo_url) # Convertir HttpUrl a string
-    doc_data["vector_embedding"] = vector_embedding    # Lista de números estándar
+    doc_data = {
+        "titulo": titulo,
+        "autores": [a.strip() for a in autores.split(",")],
+        "tutor": tutor,
+        "tipo_documento": tipo_documento,
+        "periodo_academico": periodo_academico,
+        "resumen": resumen,
+        "archivo_url": drive_res['link'],
+        "drive_file_id": drive_res['file_id'],
+        "vector_embedding": vector_embedding
+    }
     
-    # 5. Guardar en la base de datos
     await doc_teg_inf_collection.insert_one(doc_data)
+    await registrar_log(current_user["correo"], "registro", f"Registró tesis: {titulo}")
 
-    # Registrar en logs
-    detalles = f"Registró el documento con título: {documento.titulo}"
-    await registrar_log(current_user["correo"], "registro", detalles)
+    return {"detail": "Documento registrado exitosamente", "link": drive_res['link']}
 
-    return {"detail": "Documento registrado exitosamente"}
 
 @router.delete("/{doc_id}")
 async def delete_document(
@@ -73,7 +75,7 @@ async def delete_document(
     x_control_key: str = Header(...),
     current_user: dict = Depends(require_superadmin)
 ):
-    # Verificar la Llave de Control
+    """Elimina el registro de la DB y el archivo físico de Drive"""
     if not verify_control_key(x_control_key, current_user["llave_seguridad_hash"]):
         raise HTTPException(status_code=401, detail="Llave de Control inválida")
 
@@ -82,28 +84,40 @@ async def delete_document(
     except Exception:
         raise HTTPException(status_code=400, detail="ID de documento inválido")
 
-    # Buscar y eliminar el documento
     documento = await doc_teg_inf_collection.find_one({"_id": object_id})
     if not documento:
         raise HTTPException(status_code=404, detail="Documento no encontrado")
 
+    # 1. ELIMINAR DE DRIVE
+    if "drive_file_id" in documento:
+        try:
+            await delete_from_drive(documento["drive_file_id"])
+        except Exception as e:
+            # Logueamos el error pero seguimos para no dejar basura en la DB
+            print(f"Error al eliminar en Drive: {e}")
+
+    # 2. ELIMINAR DE MONGODB
     await doc_teg_inf_collection.delete_one({"_id": object_id})
+    
+    await registrar_log(current_user["correo"], "eliminación", f"Eliminó tesis: {documento.get('titulo')}")
 
-    # Registrar en logs
-    titulo = documento.get("titulo", "Documento sin título")
-    detalles = f"Eliminó el documento con título: {titulo}"
-    await registrar_log(current_user["correo"], "eliminación", detalles)
+    return {"detail": "Documento y archivo eliminados correctamente"}
 
-    return {"detail": "Documento eliminado exitosamente"}
 
 @router.put("/{doc_id}")
 async def update_document(
     doc_id: str,
-    update_data: DocumentoAcademicoUpdate,
+    titulo: Optional[str] = Form(None),
+    autores: Optional[str] = Form(None),
+    tutor: Optional[str] = Form(None),
+    tipo_documento: Optional[str] = Form(None),
+    periodo_academico: Optional[str] = Form(None),
+    resumen: Optional[str] = Form(None),
+    file: Optional[UploadFile] = File(None),
     x_control_key: str = Header(...),
     current_user: dict = Depends(get_current_user)
 ):
-    # Verificar la Llave de Control
+    """Actualiza datos del documento de forma limpia"""
     if not verify_control_key(x_control_key, current_user["llave_seguridad_hash"]):
         raise HTTPException(status_code=401, detail="Llave de Control inválida")
 
@@ -112,34 +126,56 @@ async def update_document(
     except Exception:
         raise HTTPException(status_code=400, detail="ID de documento inválido")
 
-    documento = await doc_teg_inf_collection.find_one({"_id": object_id})
-    if not documento:
+    # 1. Buscar el documento actual
+    documento_original = await doc_teg_inf_collection.find_one({"_id": object_id})
+    if not documento_original:
         raise HTTPException(status_code=404, detail="Documento no encontrado")
 
-    update_dict = update_data.dict(exclude_unset=True)
+    # 2. Construir el diccionario de actualización (solo lo que viene en el Form)
+    update_dict = {}
+    
+    if titulo is not None: update_dict["titulo"] = titulo
+    if autores is not None: update_dict["autores"] = [a.strip() for a in autores.split(",")]
+    if tutor is not None: update_dict["tutor"] = tutor
+    if tipo_documento is not None: update_dict["tipo_documento"] = tipo_documento
+    if periodo_academico is not None: update_dict["periodo_academico"] = periodo_academico
+    if resumen is not None: update_dict["resumen"] = resumen
 
-    # Si se actualiza el título o el resumen, recalcular el embedding
-    if "titulo" in update_dict or "resumen" in update_dict:
-        nuevo_titulo = update_dict.get("titulo", documento.get("titulo", ""))
-        nuevo_resumen = update_dict.get("resumen", documento.get("resumen", ""))
-        texto_para_ia = f"Título: {nuevo_titulo}. Resumen: {nuevo_resumen}"
+    # 3. Si hay un archivo nuevo, actualizar en Drive
+    if file:
+        try:
+            content = await file.read()
+            # Actualizamos en Drive y obtenemos el nuevo link/id
+            drive_res = await update_drive_file(
+                documento_original["drive_file_id"], 
+                content, 
+                file.filename
+            )
+            update_dict["archivo_url"] = drive_res['link']
+            update_dict["drive_file_id"] = drive_res['file_id']
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Error en Drive: {str(e)}")
+
+    # 4. RECALCULAR EMBEDDING (Solo si cambió título, resumen o hay archivo nuevo)
+    if any(k in update_dict for k in ["titulo", "resumen"]) or file:
+        # Usamos lo nuevo si existe, si no, lo que ya estaba en la DB
+        t = update_dict.get("titulo", documento_original.get("titulo"))
+        r = update_dict.get("resumen", documento_original.get("resumen"))
+        
         ai_service = AIService()
-        embedding_raw = await ai_service.generate_embedding(texto_para_ia)
-        if hasattr(embedding_raw, "tolist"):
-            vector_embedding = embedding_raw.tolist()
-        else:
-            vector_embedding = embedding_raw
-        update_dict["vector_embedding"] = vector_embedding
+        texto_ia = f"Título: {t}. Resumen: {r}"
+        
+        embedding_raw = await ai_service.generate_embedding(texto_ia)
+        update_dict["vector_embedding"] = embedding_raw.tolist() if hasattr(embedding_raw, "tolist") else embedding_raw
 
-    # Si archivo_url está presente, convertir a string
-    if "archivo_url" in update_dict and update_dict["archivo_url"] is not None:
-        update_dict["archivo_url"] = str(update_dict["archivo_url"])
-
-    await doc_teg_inf_collection.update_one({"_id": object_id}, {"$set": update_dict})
-
-    # Registrar en logs
-    detalles = f"Editó el documento con título: {documento.get('titulo', 'Documento sin título')}"
-    await registrar_log(current_user["correo"], "edición", detalles)
+    # 5. Ejecutar la actualización en MongoDB
+    if update_dict:
+        # Importante: Usamos $set para que solo toque los campos enviados
+        await doc_teg_inf_collection.update_one(
+            {"_id": object_id}, 
+            {"$set": update_dict}
+        )
+        await registrar_log(current_user["correo"], "edición", f"Editó tesis: {documento_original.get('titulo')}")
 
     return {"detail": "Documento actualizado exitosamente"}
 
