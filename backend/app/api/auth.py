@@ -1,15 +1,10 @@
+
 from fastapi import APIRouter, HTTPException, Depends
 from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel
 from jose import JWTError, jwt
-from datetime import timedelta
-from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from ..db.session import usuarios_collection
-from ..core.security import (
-    verify_password, create_access_token, verify_control_key
-)
-from bson.objectid import ObjectId
 import os
+from ..core.security import verify_password, create_access_token, verify_control_key
 
 router = APIRouter()
 
@@ -29,6 +24,7 @@ class VerifyKeyRequest(BaseModel):
 
 # Utilidad para obtener usuario por correo
 async def get_user_by_email(correo: str):
+    from app.db.session import usuarios_collection
     user = await usuarios_collection.find_one({"correo": correo})
     return user
 
@@ -44,7 +40,6 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
 
 # Dependencia para obtener usuario autenticado desde JWT
 from fastapi.security import OAuth2PasswordBearer
-from fastapi import Request
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 
@@ -73,12 +68,10 @@ async def verify_key(request: VerifyKeyRequest, current_user: dict = Depends(get
         raise HTTPException(status_code=401, detail="Llave de control incorrecta")
     return {"detail": "Llave de control válida"}
 
-from fastapi import HTTPException
-
 def require_superadmin(current_user: dict = Depends(get_current_user)):
     if current_user.get('rol') != 'super_admin':
         raise HTTPException(
             status_code=403, 
             detail='Acceso denegado: Se requieren permisos de SuperAdmin'
         )
-    return current_user #
+    return current_user
