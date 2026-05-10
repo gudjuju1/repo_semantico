@@ -16,7 +16,6 @@ class SearchQuery(BaseModel):
 @router.post("/semantic")
 async def semantic_search(
     query: SearchQuery,
-    current_user: dict = Depends(get_current_user)
 ):
     try:
         # 1. Convertir la consulta en vector

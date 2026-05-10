@@ -9,7 +9,7 @@ from ..core.security import verify_password, create_access_token, verify_control
 router = APIRouter()
 
 SECRET_KEY = os.getenv("SECRET_KEY", "super-secret-key")
-ALGORITHM = "HS256"
+ALGORITHM = os.getenv("ALGORITHM", "HS256")
 
 class Token(BaseModel):
     access_token: str
@@ -28,15 +28,32 @@ async def get_user_by_email(correo: str):
     user = await usuarios_collection.find_one({"correo": correo})
     return user
 
+class TokenWithUser(BaseModel):
+    access_token: str
+    token_type: str
+    user: dict  # Cambiar a dict para flexibilidad
+
 # Endpoint de login
-@router.post("/login", response_model=Token)
+@router.post("/login", response_model=TokenWithUser)
 async def login(form_data: OAuth2PasswordRequestForm = Depends()):
     user = await get_user_by_email(form_data.username)
     if not user or not verify_password(form_data.password, user["password_hash"]):
         raise HTTPException(status_code=401, detail="Credenciales incorrectas")
     token_data = {"sub": user["correo"], "rol": user["rol"]}
     access_token = create_access_token(token_data)
-    return {"access_token": access_token, "token_type": "bearer"}
+    
+    # Devolver token y datos del usuario (sin password_hash)
+    user_data = {
+        "correo": user["correo"],
+        "nombre": user["nombre"],
+        "role": user["rol"]  # Cambiar "rol" a "role" para coincidir con el frontend
+    }
+    
+    return {
+        "access_token": access_token, 
+        "token_type": "bearer",
+        "user": user_data
+    }
 
 # Dependencia para obtener usuario autenticado desde JWT
 from fastapi.security import OAuth2PasswordBearer

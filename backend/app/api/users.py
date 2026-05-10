@@ -28,7 +28,7 @@ class UsuarioUpdate(BaseModel):
 @router.get("/")
 async def list_users(
     offset: int = Query(0, ge=0), 
-    limit: int = Query(10, ge=1, le=100),
+    limit: int = Query(1000, ge=1),
     current_user: dict = Depends(require_superadmin)
 ):
     """Lista todos los usuarios (Solo SuperAdmin)"""
@@ -63,7 +63,7 @@ async def create_user(
     }
     
     result = await usuarios_collection.insert_one(usuario_db)
-    await registrar_log(current_user["correo"], "CREAR_USUARIO", f"Creó usuario admin: {user.correo}")
+    await registrar_log(current_user["correo"], "REGISTRO DE USUARIO", f"Creó usuario admin: {user.correo}")
     
     return {
         "message": f"Usuario '{user.nombre}' registrado exitosamente",
@@ -89,6 +89,9 @@ async def update_user(
     user_db = await usuarios_collection.find_one({"_id": object_id})
     if not user_db:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
+        
+    if user_db.get("rol") == "super_admin":
+        raise HTTPException(status_code=403, detail="No está permitido modificar al SuperAdmin")
 
     update_dict = update.dict(exclude_unset=True)
     update_dict.pop("rol", None)  # Protegemos el rol
@@ -102,7 +105,7 @@ async def update_user(
         raise HTTPException(status_code=400, detail="No hay campos válidos para actualizar")
 
     await usuarios_collection.update_one({"_id": object_id}, {"$set": update_dict})
-    await registrar_log(current_user["correo"], "EDITAR_USUARIO", f"Editó usuario: {user_db['correo']}")
+    await registrar_log(current_user["correo"], "EDICION DE USUARIO", f"Editó usuario: {user_db['correo']}")
     
     return {"detail": "Usuario actualizado exitosamente"}
 
@@ -127,8 +130,11 @@ async def delete_user(
     user_db = await usuarios_collection.find_one({"_id": object_id})
     if not user_db:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
+        
+    if user_db.get("rol") == "super_admin":
+        raise HTTPException(status_code=403, detail="No está permitido eliminar al SuperAdmin")
 
     await usuarios_collection.delete_one({"_id": object_id})
-    await registrar_log(current_user["correo"], "ELIMINAR_USUARIO", f"Eliminó usuario: {user_db['correo']}")
+    await registrar_log(current_user["correo"], "ELIMINACION DE USUARIO", f"Eliminó usuario: {user_db['correo']}")
     
     return {"detail": "Usuario eliminado exitosamente"}

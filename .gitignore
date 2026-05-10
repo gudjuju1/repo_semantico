@@ -75,3 +75,9 @@ Thumbs.db
 
 client_secrets.json
 token.pickle
+token.json
+credentials.json
+*.pickle
+.idea/
+.project
+.settings/

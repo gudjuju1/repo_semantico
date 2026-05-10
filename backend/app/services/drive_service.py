@@ -9,7 +9,7 @@ from google.auth.transport.requests import Request
 from googleapiclient.errors import HttpError # Faltaba esta importación
 
 # Configuración
-FOLDER_ID = '12FIr811b9_0pFpgw_6KVuzkhChFVc2AQ'
+FOLDER_ID = os.getenv("GOOGLE_DRIVE_FOLDER_ID")
 SCOPES = ['https://www.googleapis.com/auth/drive.file']
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -37,7 +37,10 @@ def get_drive_service():
 async def upload_to_drive(file_content: bytes, filename: str):
     def _upload():
         service = get_drive_service()
-        file_metadata = {'name': filename, 'parents': [FOLDER_ID]}
+        file_metadata = {
+            'name': filename, 
+            'parents': [FOLDER_ID]
+        }
         media = MediaIoBaseUpload(io.BytesIO(file_content), mimetype='application/pdf')
         
         file = service.files().create(
@@ -49,6 +52,12 @@ async def upload_to_drive(file_content: bytes, filename: str):
         service.permissions().create(
             fileId=file['id'],
             body={'type': 'anyone', 'role': 'reader'}
+        ).execute()
+        
+        # Google Drive API requiere que esto se haga mediante update
+        service.files().update(
+            fileId=file['id'],
+            body={'copyRequiresWriterPermission': True}
         ).execute()
         
         return {'file_id': file['id'], 'link': file['webViewLink']}
@@ -70,8 +79,11 @@ async def update_drive_file(file_id: str, new_content: bytes, filename: str):
     def _update():
         service = get_drive_service()
         
-        # Metadata opcional: por si quieres actualizar el nombre también
-        file_metadata = {'name': filename}
+        # Metadata opcional: por si quieres actualizar el nombre también, y bloqueamos descargas
+        file_metadata = {
+            'name': filename,
+            'copyRequiresWriterPermission': True
+        }
         
         media = MediaIoBaseUpload(
             io.BytesIO(new_content), 

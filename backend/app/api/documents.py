@@ -64,7 +64,7 @@ async def upload_document(
     }
     
     await doc_teg_inf_collection.insert_one(doc_data)
-    await registrar_log(current_user["correo"], "registro", f"Registró tesis: {titulo}")
+    await registrar_log(current_user["correo"], "REGISTRO DE DOCUMENTO", f"Registró tesis: {titulo}")
 
     return {"detail": "Documento registrado exitosamente", "link": drive_res['link']}
 
@@ -99,7 +99,7 @@ async def delete_document(
     # 2. ELIMINAR DE MONGODB
     await doc_teg_inf_collection.delete_one({"_id": object_id})
     
-    await registrar_log(current_user["correo"], "eliminación", f"Eliminó tesis: {documento.get('titulo')}")
+    await registrar_log(current_user["correo"], "ELIMINACION DE DOCUMENTO", f"Eliminó tesis: {documento.get('titulo')}")
 
     return {"detail": "Documento y archivo eliminados correctamente"}
 
@@ -175,18 +175,36 @@ async def update_document(
             {"_id": object_id}, 
             {"$set": update_dict}
         )
-        await registrar_log(current_user["correo"], "edición", f"Editó tesis: {documento_original.get('titulo')}")
+        await registrar_log(current_user["correo"], "EDICION DE DOCUMENTO", f"Editó tesis: {documento_original.get('titulo')}")
 
     return {"detail": "Documento actualizado exitosamente"}
 
 @router.get("/")
-async def list_documents(offset: int = Query(0, ge=0), limit: int = Query(10, ge=1, le=100)):
-    cursor = doc_teg_inf_collection.find({}, {"vector_embedding": 0})
+async def list_documents(
+    offset: int = Query(0, ge=0),
+    limit: int = Query(1000, ge=1),
+    tipo_documento: Optional[str] = Query(None),
+    periodo_academico: Optional[str] = Query(None)
+):
+    # Construir filtro dinámico
+    filtro = {}
+    if tipo_documento:
+        filtro["tipo_documento"] = tipo_documento
+    if periodo_academico:
+        filtro["periodo_academico"] = periodo_academico
+
+    cursor = doc_teg_inf_collection.find(filtro, {"vector_embedding": 0})
     documentos = []
     async for doc in cursor.skip(offset).limit(limit):
         doc["id"] = str(doc.pop("_id"))
         documentos.append(doc)
     return documentos
+
+@router.get("/periodos")
+async def list_periodos():
+    periodos = await doc_teg_inf_collection.distinct("periodo_academico")
+    cleaned = [p for p in periodos if p]
+    return {"periodos": sorted(cleaned)}
 
 @router.get("/audit-logs")
 async def list_audit_logs(current_user: dict = Depends(require_superadmin)):
