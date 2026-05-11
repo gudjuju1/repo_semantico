@@ -299,13 +299,13 @@ const AdminPanel = () => {
             <div className="rounded-3xl border border-dark-border bg-dark-card p-6 shadow-lg text-center lg:text-left">
               <div className="mb-6 border-b border-dark-border pb-4">
                 <h2 className="text-xl font-black text-primary tracking-tight">ADMIN</h2>
-                <p className="mt-1 text-xs text-text-main/50 uppercase font-bold tracking-widest">Gestión de Tesis</p>
+                <p className="mt-1 text-xs text-text-main/50 uppercase font-bold tracking-widest">Gestión de Documentos</p>
               </div>
               
               <div className="mt-4 rounded-2xl border border-dark-border bg-black/20 p-4 text-xs space-y-3">
                 <p className="font-bold text-text-main/40 uppercase tracking-widest">Resumen</p>
                 <div className="flex justify-between">
-                  <span className="text-text-main/60">Tesis Totales:</span>
+                  <span className="text-text-main/60">Documentos Totales:</span>
                   <span className="font-bold text-primary">{documents.length}</span>
                 </div>
               </div>
@@ -319,7 +319,7 @@ const AdminPanel = () => {
               <div>
                 <h1 className="text-2xl font-semibold text-text-main">Documentos</h1>
                 <p className="text-text-main/70">
-                  Gestiona el repositorio de tesis y control de documentos.
+                  Gestion y controlde documentos.
                 </p>
               </div>
               <div>

@@ -161,7 +161,7 @@ const PublicSearch = () => {
         <div className="mb-10 rounded-3xl border border-dark-border bg-dark-card p-8 shadow-xl">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-primary mb-3">Búsqueda de tesis UGMA</h1>
+              <h1 className="text-3xl font-bold text-primary mb-3">Búsqueda de Documentos UGMA</h1>
               <p className="text-text-main/80 max-w-2xl">
                 Los filtros se aplican automáticamente a la lista de documentos. Usa la búsqueda semántica para ver coincidencias.
               </p>
@@ -177,7 +177,7 @@ const PublicSearch = () => {
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 type="search"
-                placeholder="Buscar tesis por tema..."
+                placeholder="Buscar Documentos por tema..."
                 className="w-full rounded-2xl border border-dark-border bg-dark-bg pl-12 pr-5 py-4 text-text-main outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/30"
               />
               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-text-main/40">
@@ -270,7 +270,7 @@ const PublicSearch = () => {
                       rel="noopener noreferrer"
                       className="rounded-2xl bg-primary px-5 py-2 text-sm font-bold text-dark-bg transition hover:scale-105 active:scale-95"
                     >
-                      Ver Tesis
+                      Ver Documento
                     </a>
                   </div>
                 </div>
@@ -282,7 +282,7 @@ const PublicSearch = () => {
             ))
           ) : (
             <div className="rounded-3xl border border-dark-border bg-dark-card p-10 text-center text-text-main/70">
-              {loading ? 'Cargando resultados...' : 'No se encontraron tesis para mostrar.'}
+              {loading ? 'Cargando resultados...' : 'No se encontraron Documentos para mostrar.'}
             </div>
           )}
         </div>

@@ -533,7 +533,7 @@ const SuperAdminPanel = () => {
               <div>
                 <h1 className="text-2xl font-semibold text-text-main">{activeTab}</h1>
                 <p className="text-text-main/70">
-                  {activeTab === 'Documentos' && 'Gestiona el repositorio de tesis y control de documentos.'}
+                  {activeTab === 'Documentos' && 'Gestion y control de documentos.'}
                   {activeTab === 'Usuarios' && 'Revisa y administra los usuarios del sistema.'}
                   {activeTab === 'Auditoría (Logs)' && 'Consulta las acciones recientes del sistema.'}
                 </p>
