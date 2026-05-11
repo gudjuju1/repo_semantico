@@ -1,38 +1,35 @@
 import os
 import io
-import pickle
+import json
 import asyncio
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseUpload
-from google_auth_oauthlib.flow import InstalledAppFlow
-from google.auth.transport.requests import Request
-from googleapiclient.errors import HttpError # Faltaba esta importación
+from google.oauth2 import service_account
+from googleapiclient.errors import HttpError
 
 # Configuración
+# El usuario pidió explícitamente usar DRIVE_FOLDER_ID
 FOLDER_ID = os.getenv("GOOGLE_DRIVE_FOLDER_ID")
 SCOPES = ['https://www.googleapis.com/auth/drive.file']
 
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-CLIENT_SECRETS_FILE = os.path.join(BASE_DIR, 'client_secrets.json')
-TOKEN_PICKLE = os.path.join(BASE_DIR, 'token.pickle')
-
 def get_drive_service():
-    creds = None
-    if os.path.exists(TOKEN_PICKLE):
-        with open(TOKEN_PICKLE, 'rb') as token:
-            creds = pickle.load(token)
-            
-    if not creds or not creds.valid:
-        if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
-        else:
-            flow = InstalledAppFlow.from_client_secrets_file(CLIENT_SECRETS_FILE, SCOPES)
-            creds = flow.run_local_server(port=0)
-        
-        with open(TOKEN_PICKLE, 'wb') as token:
-            pickle.dump(creds, token)
-
-    return build('drive', 'v3', credentials=creds)
+    """
+    Obtiene el servicio de Google Drive usando una Service Account.
+    Las credenciales se leen desde la variable de entorno GOOGLE_CREDENTIALS_JSON.
+    """
+    creds_json = os.getenv("GOOGLE_CREDENTIALS_JSON")
+    if not creds_json:
+        raise Exception("Error: La variable de entorno GOOGLE_CREDENTIALS_JSON no está definida.")
+    
+    try:
+        creds_info = json.loads(creds_json)
+        creds = service_account.Credentials.from_service_account_info(
+            creds_info, 
+            scopes=SCOPES
+        )
+        return build('drive', 'v3', credentials=creds)
+    except Exception as e:
+        raise Exception(f"Error al inicializar las credenciales de la Service Account: {str(e)}")
 
 async def upload_to_drive(file_content: bytes, filename: str):
     def _upload():
@@ -49,12 +46,13 @@ async def upload_to_drive(file_content: bytes, filename: str):
             fields='id, webViewLink'
         ).execute()
 
+        # Dar permisos de lectura a cualquiera con el link
         service.permissions().create(
             fileId=file['id'],
             body={'type': 'anyone', 'role': 'reader'}
         ).execute()
         
-        # Google Drive API requiere que esto se haga mediante update
+        # Bloquear la descarga/copia para lectores (copyRequiresWriterPermission)
         service.files().update(
             fileId=file['id'],
             body={'copyRequiresWriterPermission': True}
@@ -71,7 +69,6 @@ async def delete_from_drive(file_id: str):
     try:
         await asyncio.to_thread(_delete)
     except Exception as e:
-        # Usamos Exception genérica o HttpError si prefieres ser específico
         raise Exception(f"Error al eliminar archivo de Drive: {str(e)}")
 
 async def update_drive_file(file_id: str, new_content: bytes, filename: str):
@@ -79,7 +76,6 @@ async def update_drive_file(file_id: str, new_content: bytes, filename: str):
     def _update():
         service = get_drive_service()
         
-        # Metadata opcional: por si quieres actualizar el nombre también, y bloqueamos descargas
         file_metadata = {
             'name': filename,
             'copyRequiresWriterPermission': True
@@ -91,7 +87,6 @@ async def update_drive_file(file_id: str, new_content: bytes, filename: str):
             resumable=True
         )
         
-        # Realizamos el update
         file = service.files().update(
             fileId=file_id,
             body=file_metadata,
