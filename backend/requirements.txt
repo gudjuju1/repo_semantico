@@ -62,7 +62,6 @@ rsa==4.9.1
 safetensors==0.7.0
 scikit-learn==1.8.0
 scipy==1.17.1
-sentence-transformers==5.4.1
 setuptools==81.0.0
 shellingham==1.5.4
 six==1.17.0
@@ -70,7 +69,6 @@ starlette==1.0.0
 sympy==1.14.0
 threadpoolctl==3.6.0
 tokenizers==0.22.2
-torch==2.11.0
 tqdm==4.67.3
 transformers==5.8.0
 typer==0.25.1
@@ -79,3 +77,4 @@ typing_extensions==4.15.0
 uritemplate==4.2.0
 urllib3==2.6.3
 uvicorn==0.46.0
+requests
