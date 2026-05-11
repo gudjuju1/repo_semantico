@@ -36,37 +36,59 @@ async def upload_document(
     x_control_key: str = Header(...),
     current_user: dict = Depends(get_current_user)
 ):
-    """Sube un archivo a Drive y lo registra en la DB con IA"""
     if not verify_control_key(x_control_key, current_user["llave_seguridad_hash"]):
         raise HTTPException(status_code=401, detail="Llave de Control inválida")
 
+    # 1. Subida a Google Drive
     try:
         content = await file.read()
         drive_res = await upload_to_drive(content, file.filename)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error al subir a Drive: {str(e)}")
+        print(f"Error Drive: {e}")
+        raise HTTPException(status_code=500, detail="Error al subir el archivo al repositorio")
 
-    ai_service = AIService()
-    texto_para_ia = f"Título: {titulo}. Resumen: {resumen}"
-    embedding_raw = await ai_service.generate_embedding(texto_para_ia)
-    vector_embedding = embedding_raw.tolist() if hasattr(embedding_raw, "tolist") else embedding_raw
+    # 2. Generación de Embedding (IA)
+    try:
+        ai_service = AIService()
+        texto_para_ia = f"Título: {titulo}. Resumen: {resumen}"
+        embedding_raw = await ai_service.generate_embedding(texto_para_ia)
+        
+        # Validar formato: La API a veces devuelve [[...]]
+        if isinstance(embedding_raw, list) and len(embedding_raw) > 0:
+            if isinstance(embedding_raw[0], list):
+                vector_embedding = embedding_raw[0]
+            else:
+                vector_embedding = embedding_raw
+        else:
+            vector_embedding = embedding_raw
+            
+    except Exception as e:
+        print(f"Error IA: {e}")
+        # Opcional: podrías decidir guardar el documento sin vector si la IA falla
+        raise HTTPException(status_code=500, detail="Error procesando la búsqueda semántica")
 
-    doc_data = {
-        "titulo": titulo,
-        "autores": [a.strip() for a in autores.split(",")],
-        "tutor": tutor,
-        "tipo_documento": tipo_documento,
-        "periodo_academico": periodo_academico,
-        "resumen": resumen,
-        "archivo_url": drive_res['link'],
-        "drive_file_id": drive_res['file_id'],
-        "vector_embedding": vector_embedding
-    }
+    # 3. Guardado en MongoDB
+    try:
+        doc_data = {
+            "titulo": titulo,
+            "autores": [a.strip() for a in autores.split(",")],
+            "tutor": tutor,
+            "tipo_documento": tipo_documento,
+            "periodo_academico": periodo_academico,
+            "resumen": resumen,
+            "archivo_url": drive_res['link'],
+            "drive_file_id": drive_res['file_id'],
+            "vector_embedding": vector_embedding  # Lista de floats
+        }
+        
+        await doc_teg_inf_collection.insert_one(doc_data)
+        await registrar_log(current_user["correo"], "REGISTRO DE DOCUMENTO", f"Registró tesis: {titulo}")
+
+        return {"detail": "Documento registrado exitosamente", "link": drive_res['link']}
     
-    await doc_teg_inf_collection.insert_one(doc_data)
-    await registrar_log(current_user["correo"], "REGISTRO DE DOCUMENTO", f"Registró tesis: {titulo}")
-
-    return {"detail": "Documento registrado exitosamente", "link": drive_res['link']}
+    except Exception as e:
+        print(f"Error DB: {e}")
+        raise HTTPException(status_code=500, detail="Error al guardar en la base de datos")
 
 
 @router.delete("/{doc_id}")
