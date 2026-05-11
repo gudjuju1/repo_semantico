@@ -6,7 +6,7 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5175", "http://localhost:5173", "http://localhost:5174"], # URLs del frontend
+    allow_origins=["http://localhost:5175", "http://localhost:5173", "http://localhost:5174","https://repo-semantico-1.onrender.com"], # URLs del frontend
     allow_credentials=True,
     allow_methods=["*"], # Permite GET, POST, PUT, DELETE, etc.
     allow_headers=["*"], # Permite todos los headers (incluyendo tu x-control-key)
