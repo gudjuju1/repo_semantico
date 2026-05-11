@@ -53,7 +53,11 @@ async def upload_document(
         texto_para_ia = f"Título: {titulo}. Resumen: {resumen}"
         embedding_raw = await ai_service.generate_embedding(texto_para_ia)
         
-        # Validar formato: La API a veces devuelve [[...]]
+        # Convertir a lista si es un array de NumPy
+        if hasattr(embedding_raw, "tolist"):
+            embedding_raw = embedding_raw.tolist()
+        
+        # Validar formato: La API a veces devuelve [[...]] (especialmente si se usó batch)
         if isinstance(embedding_raw, list) and len(embedding_raw) > 0:
             if isinstance(embedding_raw[0], list):
                 vector_embedding = embedding_raw[0]
@@ -188,7 +192,15 @@ async def update_document(
         texto_ia = f"Título: {t}. Resumen: {r}"
         
         embedding_raw = await ai_service.generate_embedding(texto_ia)
-        update_dict["vector_embedding"] = embedding_raw.tolist() if hasattr(embedding_raw, "tolist") else embedding_raw
+        
+        # Asegurar conversión a lista (NumPy no es serializable por MongoDB)
+        if hasattr(embedding_raw, "tolist"):
+            embedding_raw = embedding_raw.tolist()
+            
+        if isinstance(embedding_raw, list) and len(embedding_raw) > 0:
+            update_dict["vector_embedding"] = embedding_raw[0] if isinstance(embedding_raw[0], list) else embedding_raw
+        else:
+            update_dict["vector_embedding"] = embedding_raw
 
     # 5. Ejecutar la actualización en MongoDB
     if update_dict:
