@@ -291,15 +291,25 @@ const AdminPanel = () => {
 
   return (
     <div className="min-h-screen bg-dark-bg text-text-main">
-      <div className="mx-auto flex min-h-screen max-w-350 gap-6 px-4 py-6 lg:px-8">
-        <aside className="w-full max-w-70 rounded-3xl border border-dark-border bg-dark-card p-5 shadow-lg xl:w-70">
-          <div className="mb-8 border-b border-dark-border pb-5">
-            <h2 className="text-lg font-semibold text-primary">Admin Panel</h2>
-            <p className="mt-2 text-sm text-text-main/80">Gestión de documentos</p>
-          </div>
-          <div className="mt-8 rounded-2xl border border-dark-border bg-black/20 p-4 text-sm text-text-main/80">
-            <p className="font-semibold text-text-main">Estado</p>
-            <p>Documentos: {documents.length}</p>
+      <div className="mx-auto flex flex-col lg:flex-row min-h-screen max-w-[1600px] gap-6 px-4 py-6 lg:px-8">
+        
+        {/* Sidebar / Mobile Header */}
+        <aside className="w-full lg:w-72 flex-shrink-0">
+          <div className="sticky top-24 space-y-6">
+            <div className="rounded-3xl border border-dark-border bg-dark-card p-6 shadow-lg text-center lg:text-left">
+              <div className="mb-6 border-b border-dark-border pb-4">
+                <h2 className="text-xl font-black text-primary tracking-tight">ADMIN</h2>
+                <p className="mt-1 text-xs text-text-main/50 uppercase font-bold tracking-widest">Gestión de Tesis</p>
+              </div>
+              
+              <div className="mt-4 rounded-2xl border border-dark-border bg-black/20 p-4 text-xs space-y-3">
+                <p className="font-bold text-text-main/40 uppercase tracking-widest">Resumen</p>
+                <div className="flex justify-between">
+                  <span className="text-text-main/60">Tesis Totales:</span>
+                  <span className="font-bold text-primary">{documents.length}</span>
+                </div>
+              </div>
+            </div>
           </div>
         </aside>
 
@@ -428,7 +438,7 @@ const AdminPanel = () => {
 
       {(isAddModalOpen || isEditModalOpen) && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 py-6">
-          <div className="w-full max-w-3xl rounded-3xl border border-dark-border bg-dark-card p-6 shadow-2xl">
+          <div className="w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-3xl border border-dark-border bg-dark-card p-6 shadow-2xl custom-scrollbar">
             <div className="mb-6 flex items-center justify-between">
               <div>
                 <h2 className="text-2xl font-semibold text-text-main">
@@ -549,7 +559,7 @@ const AdminPanel = () => {
 
       {isControlKeyModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 py-6">
-          <div className="w-full max-w-md rounded-3xl border border-dark-border bg-dark-card p-6 shadow-2xl">
+          <div className="w-full max-w-md max-h-[90vh] overflow-y-auto rounded-3xl border border-dark-border bg-dark-card p-6 shadow-2xl custom-scrollbar">
             <div className="mb-6">
               <h2 className="text-xl font-semibold text-text-main">Verificación de Seguridad</h2>
               <p className="text-text-main/70 text-sm">

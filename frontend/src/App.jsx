@@ -12,23 +12,18 @@ function App() {
   return (
     <AuthProvider>
       <Router>
-        <div className="min-h-screen bg-dark-bg text-text-main">
-          <Navbar />
-          <main className="container mx-auto px-4 py-8">
-            <Routes>
-              <Route path="/" element={<PublicSearch />} />
-              <Route path="/login" element={<Login />} />
-              <Route
-                path="/admin/*"
-                element={
-                  <ProtectedRoute>
-                    <Dashboard />
-                  </ProtectedRoute>
-                }
-              />
-            </Routes>
-          </main>
-        </div>
+        <Routes>
+          <Route path="/" element={<><Navbar /><main className="container mx-auto px-4 py-8"><PublicSearch /></main></>} />
+          <Route path="/login" element={<Login />} />
+          <Route
+            path="/admin/*"
+            element={
+              <ProtectedRoute>
+                <><Navbar /><main className="container mx-auto px-4 py-8"><Dashboard /></main></>
+              </ProtectedRoute>
+            }
+          />
+        </Routes>
       </Router>
     </AuthProvider>
   );

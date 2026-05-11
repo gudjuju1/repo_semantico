@@ -156,7 +156,7 @@ const PublicSearch = () => {
   const totalPages = pageMode === 'search' ? Math.max(1, Math.ceil(results.length / PAGE_SIZE)) : null;
 
   return (
-    <section className="min-h-screen bg-dark-bg text-text-main py-10">
+    <section className="min-h-screen bg-dark-bg text-text-main py-10 overflow-x-hidden max-w-full">
       <div className="mx-auto max-w-6xl px-4">
         <div className="mb-10 rounded-3xl border border-dark-border bg-dark-card p-8 shadow-xl">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -171,63 +171,67 @@ const PublicSearch = () => {
             </div>
           </div>
 
-          <form className="mt-6 grid gap-4 lg:grid-cols-[1.8fr_1fr_1fr_auto]" onSubmit={handleSearch}>
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              type="search"
-              placeholder="Buscar documentos"
-              className="w-full rounded-2xl border border-dark-border bg-dark-bg px-5 py-4 text-text-main outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/30"
-            />
+          <form className="mt-8 flex flex-col gap-4 lg:grid lg:grid-cols-[2.5fr_1.2fr_1.2fr_auto]" onSubmit={handleSearch}>
+            <div className="relative w-full">
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                type="search"
+                placeholder="Buscar tesis por tema..."
+                className="w-full rounded-2xl border border-dark-border bg-dark-bg pl-12 pr-5 py-4 text-text-main outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/30"
+              />
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-text-main/40">
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </span>
+            </div>
 
-            <select
-              value={tipoDocumento}
-              onChange={(e) => setTipoDocumento(e.target.value)}
-              className="rounded-2xl border border-dark-border bg-dark-bg px-4 py-4 text-text-main outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/30"
-            >
-              {DOCUMENT_TYPES.map((option) => (
-                <option key={option.value} value={option.value} className="bg-dark-bg text-text-main">
-                  {option.label}
-                </option>
-              ))}
-            </select>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:contents">
+              <select
+                value={tipoDocumento}
+                onChange={(e) => setTipoDocumento(e.target.value)}
+                className="w-full rounded-2xl border border-dark-border bg-dark-bg px-4 py-4 text-text-main outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/30 appearance-none cursor-pointer"
+              >
+                {DOCUMENT_TYPES.map((option) => (
+                  <option key={option.value} value={option.value} className="bg-dark-bg text-text-main">
+                    {option.label}
+                  </option>
+                ))}
+              </select>
 
-            <select
-              value={periodoAcademico}
-              onChange={(e) => setPeriodoAcademico(e.target.value)}
-              className="rounded-2xl border border-dark-border bg-dark-bg px-4 py-4 text-text-main outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/30"
-            >
-              <option value="">Todos los periodos</option>
-              {periodos.map((periodo) => (
-                <option key={periodo} value={periodo} className="bg-dark-bg text-text-main">
-                  {periodo}
-                </option>
-              ))}
-            </select>
+              <select
+                value={periodoAcademico}
+                onChange={(e) => setPeriodoAcademico(e.target.value)}
+                className="w-full rounded-2xl border border-dark-border bg-dark-bg px-4 py-4 text-text-main outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/30 appearance-none cursor-pointer"
+              >
+                <option value="">Todos los periodos</option>
+                {periodos.map((periodo) => (
+                  <option key={periodo} value={periodo} className="bg-dark-bg text-text-main">
+                    {periodo}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-            <div className="flex gap-3">
+            <div className="flex gap-2">
               <button
                 type="submit"
                 disabled={loading}
-                className="inline-flex items-center justify-center rounded-2xl bg-primary px-6 py-4 text-dark-bg font-semibold transition hover:bg-opacity-90 disabled:cursor-not-allowed disabled:bg-green-500/60"
+                className="flex-1 lg:flex-none inline-flex items-center justify-center rounded-2xl bg-primary px-8 py-4 text-dark-bg font-bold shadow-lg shadow-primary/20 transition hover:scale-[1.02] active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 min-w-[120px]"
               >
-                {loading ? 'Buscando...' : 'Buscar'}
-              </button>
-              <button
-                type="button"
-                onClick={handleApplyFilters}
-                disabled={loading}
-                className="inline-flex items-center justify-center rounded-2xl border border-primary bg-primary/10 px-6 py-4 text-primary font-semibold transition hover:bg-primary hover:text-dark-bg disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                Aplicar Filtros
+                {loading ? '...' : 'Buscar'}
               </button>
               <button
                 type="button"
                 onClick={handleRefresh}
                 disabled={loading}
-                className="inline-flex items-center justify-center rounded-2xl border border-dark-border bg-black/10 px-6 py-4 text-text-main transition hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-50"
+                title="Limpiar filtros"
+                className="inline-flex items-center justify-center rounded-2xl border border-dark-border bg-dark-bg px-5 py-4 text-text-main transition hover:border-primary hover:text-primary active:scale-95 disabled:opacity-50"
               >
-                Refrescar
+                <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
               </button>
             </div>
           </form>
@@ -235,36 +239,38 @@ const PublicSearch = () => {
           {error && <p className="mt-4 text-sm text-red-400">{error}</p>}
         </div>
 
-        <div className="grid gap-6">
+        <div className="grid gap-6 w-full max-w-full overflow-hidden">
           {visibleResults.length > 0 ? (
             visibleResults.map((item, index) => (
               <article
                 key={`${item.titulo}-${index}`}
-                className="rounded-3xl border border-dark-border bg-dark-card p-6 shadow-lg"
+                className="rounded-3xl border border-dark-border bg-dark-card p-6 shadow-lg overflow-hidden w-full"
               >
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                  <div>
-                    <h2 className="text-2xl font-semibold text-text-main">{item.titulo}</h2>
-                    <p className="mt-2 text-sm text-text-main/80">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between w-full">
+                  <div className="min-w-0 flex-1">
+                    <h2 className="text-2xl font-semibold text-text-main leading-tight line-clamp-2 overflow-hidden" title={item.titulo}>
+                      {item.titulo}
+                    </h2>
+                    <p className="mt-2 text-sm text-text-main/80 truncate">
                       {item.autores?.join(', ') || 'Autor desconocido'}
                     </p>
                     <p className="mt-1 text-sm text-text-main/70">
                       Tutor: {item.tutor || 'N/A'} · {item.periodo_academico || 'Periodo no disponible'}
                     </p>
                   </div>
-                  <div className="mt-4 flex items-center gap-3 sm:mt-0">
+                  <div className="flex flex-shrink-0 items-center gap-3">
                     {pageMode === 'search' && (
                       <span className="rounded-full border border-dark-border bg-black/20 px-3 py-1 text-sm text-text-main/80">
-                        Coincidencia: {Math.round((item.score ?? 0) * 100)}%
+                        {Math.round((item.score ?? 0) * 100)}%
                       </span>
                     )}
                     <a
                       href={item.archivo_url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="rounded-2xl bg-primary px-4 py-2 text-sm font-semibold text-dark-bg transition hover:bg-opacity-90"
+                      className="rounded-2xl bg-primary px-5 py-2 text-sm font-bold text-dark-bg transition hover:scale-105 active:scale-95"
                     >
-                      Ver Documento
+                      Ver Tesis
                     </a>
                   </div>
                 </div>
