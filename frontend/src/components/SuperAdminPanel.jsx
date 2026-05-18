@@ -511,7 +511,7 @@ const SuperAdminPanel = () => {
               <div className="mt-6 hidden lg:block rounded-2xl border border-dark-border bg-black/20 p-4 text-xs space-y-3">
                 <p className="font-bold text-text-main/40 uppercase tracking-widest">Estadísticas Rápidas</p>
                 <div className="flex justify-between">
-                  <span className="text-text-main/60">Tesis:</span>
+                  <span className="text-text-main/60">Documentos:</span>
                   <span className="font-bold text-primary">{documents.length}</span>
                 </div>
                 <div className="flex justify-between">
