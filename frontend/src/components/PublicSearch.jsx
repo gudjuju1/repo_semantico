@@ -16,6 +16,7 @@ const PublicSearch = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [pageMode, setPageMode] = useState('default');
+  const [searchType, setSearchType] = useState('semantic');
   const [tipoDocumento, setTipoDocumento] = useState('');
   const [periodoAcademico, setPeriodoAcademico] = useState('');
   const [carrera, setCarrera] = useState('');
@@ -128,11 +129,57 @@ const PublicSearch = () => {
       setResults(searchResults);
       setCurrentPage(1);
       setPageMode('search');
+      setSearchType('semantic');
       setHasNextPage(searchResults.length > PAGE_SIZE);
       setVisibleResults(searchResults.slice(0, PAGE_SIZE));
     } catch (err) {
       console.error('Search error:', err);
       setError('No se pudo obtener resultados. Intenta de nuevo.');
+      setResults([]);
+      setVisibleResults([]);
+      setHasNextPage(false);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleTextSearch = async () => {
+    const trimmedQuery = query.trim();
+    if (!trimmedQuery) {
+      setError('Ingresa un término de búsqueda.');
+      return;
+    }
+
+    setError('');
+    setLoading(true);
+
+    try {
+      const body = {
+        consulta: trimmedQuery,
+        limit: 100,
+      };
+
+      if (tipoDocumento) {
+        body.tipo_documento = tipoDocumento;
+      }
+      if (periodoAcademico) {
+        body.periodo_academico = periodoAcademico;
+      }
+      if (carrera) {
+        body.carrera = carrera;
+      }
+
+      const response = await api.post('/search/text', body);
+      const textResults = response.data?.resultados || [];
+      setResults(textResults);
+      setCurrentPage(1);
+      setPageMode('search');
+      setSearchType('textual');
+      setHasNextPage(textResults.length > PAGE_SIZE);
+      setVisibleResults(textResults.slice(0, PAGE_SIZE));
+    } catch (err) {
+      console.error('Text search error:', err);
+      setError('No se pudo obtener resultados de texto. Intenta de nuevo.');
       setResults([]);
       setVisibleResults([]);
       setHasNextPage(false);
@@ -190,7 +237,7 @@ const PublicSearch = () => {
             </div>
           </div>
 
-          <form className="mt-8 flex flex-col gap-4 lg:grid lg:grid-cols-[2.5fr_1.2fr_1.2fr_auto]" onSubmit={handleSearch}>
+          <form className="mt-8 grid gap-4" onSubmit={handleSearch}>
             <div className="relative w-full">
               <input
                 value={query}
@@ -206,7 +253,7 @@ const PublicSearch = () => {
               </span>
             </div>
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:contents">
+            <div className="grid gap-4 md:grid-cols-3">
               <select
                 value={tipoDocumento}
                 onChange={(e) => setTipoDocumento(e.target.value)}
@@ -245,20 +292,28 @@ const PublicSearch = () => {
               </select>
             </div>
 
-            <div className="flex gap-2">
+            <div className="grid gap-2 sm:grid-cols-3">
               <button
                 type="submit"
                 disabled={loading}
                 className="flex-1 lg:flex-none inline-flex items-center justify-center rounded-2xl bg-primary px-8 py-4 text-dark-bg font-bold shadow-lg shadow-primary/20 transition hover:scale-[1.02] active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 min-w-[120px]"
               >
-                {loading ? '...' : 'Buscar'}
+                {loading ? '...' : 'Búsqueda semántica'}
+              </button>
+              <button
+                type="button"
+                onClick={handleTextSearch}
+                disabled={loading}
+                className="flex-1 lg:flex-none inline-flex items-center justify-center rounded-2xl bg-emerald-500 px-8 py-4 text-dark-bg font-bold shadow-lg shadow-emerald-500/20 transition hover:scale-[1.02] active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 min-w-[120px]"
+              >
+                {loading ? '...' : 'Búsqueda textual'}
               </button>
               <button
                 type="button"
                 onClick={handleRefresh}
                 disabled={loading}
                 title="Limpiar filtros"
-                className="inline-flex items-center justify-center rounded-2xl border border-dark-border bg-dark-bg px-5 py-4 text-text-main transition hover:border-primary hover:text-primary active:scale-95 disabled:opacity-50"
+                className="inline-flex w-full items-center justify-center rounded-2xl border border-dark-border bg-dark-bg px-5 py-4 text-text-main transition hover:border-primary hover:text-primary active:scale-95 disabled:opacity-50"
               >
                 <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -290,7 +345,7 @@ const PublicSearch = () => {
                     </p>
                   </div>
                   <div className="flex flex-shrink-0 items-center gap-3">
-                    {pageMode === 'search' && (
+                    {pageMode === 'search' && searchType === 'semantic' && (
                       <span className="rounded-full border border-dark-border bg-black/20 px-3 py-1 text-sm text-text-main/80">
                         {Math.round((item.score ?? 0) * 100)}%
                       </span>

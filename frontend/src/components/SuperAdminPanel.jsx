@@ -212,7 +212,7 @@ const SuperAdminPanel = () => {
       const matchesCareer = !filterCareer || doc.carrera === filterCareer;
       return matchesText && matchesType && matchesPeriod && matchesCareer;
     });
-  }, [documents, filterPeriod, filterType, searchText]);
+  }, [documents, filterPeriod, filterType, filterCareer, searchText]);
 
   const openAddModal = () => {
     setFormState(emptyDocumentForm);

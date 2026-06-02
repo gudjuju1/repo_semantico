@@ -60,6 +60,7 @@ async def semantic_search(
                     "tutor": 1,
                     "tipo_documento": 1,
                     "periodo_academico": 1,
+                    "carrera": 1,
                     "resumen": 1,
                     "archivo_url": 1
                 }
@@ -87,3 +88,58 @@ async def semantic_search(
         # Imprime el error en la consola de Python para que puedas verlo detallado
         print(f"DEBUG ERROR: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error en la búsqueda: {str(e)}")
+
+@router.post("/text")
+async def text_search(query: SearchQuery):
+    try:
+        consulta = query.consulta.strip()
+        if not consulta:
+            raise HTTPException(status_code=400, detail="Consulta de texto requerida.")
+
+        filtro_metadata = {}
+        if query.tipo_documento and query.tipo_documento.strip():
+            filtro_metadata["tipo_documento"] = query.tipo_documento.strip()
+        if query.periodo_academico and query.periodo_academico.strip():
+            filtro_metadata["periodo_academico"] = query.periodo_academico.strip()
+        if query.carrera and query.carrera.strip():
+            filtro_metadata["carrera"] = query.carrera.strip()
+
+        regex_filter = {
+            "$or": [
+                {"titulo": {"$regex": consulta, "$options": "i"}},
+                {"resumen": {"$regex": consulta, "$options": "i"}},
+                {"autores": {"$regex": consulta, "$options": "i"}},
+                {"tutor": {"$regex": consulta, "$options": "i"}}
+            ]
+        }
+
+        query_filter = regex_filter if not filtro_metadata else {"$and": [regex_filter, filtro_metadata]}
+
+        projection = {
+            "_id": 0,
+            "titulo": 1,
+            "autores": 1,
+            "tutor": 1,
+            "tipo_documento": 1,
+            "periodo_academico": 1,
+            "carrera": 1,
+            "resumen": 1,
+            "archivo_url": 1
+        }
+
+        resultados = []
+        cursor = doc_teg_inf_collection.find(query_filter, projection=projection).limit(query.limit)
+        async for doc in cursor:
+            resultados.append(doc)
+
+        return {
+            "query": consulta,
+            "filtros_aplicados": filtro_metadata,
+            "total_resultados": len(resultados),
+            "resultados": resultados
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"DEBUG ERROR: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error en la búsqueda de texto: {str(e)}")
