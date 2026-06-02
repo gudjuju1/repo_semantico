@@ -12,6 +12,7 @@ class SearchQuery(BaseModel):
     limit: int = 5
     tipo_documento: Optional[str] = None
     periodo_academico: Optional[str] = None
+    carrera: Optional[str] = None
 
 @router.post("/semantic")
 async def semantic_search(
@@ -31,6 +32,8 @@ async def semantic_search(
             
         if query.periodo_academico and query.periodo_academico.strip():
             filtro_metadata["periodo_academico"] = query.periodo_academico.strip()
+        if query.carrera and query.carrera.strip():
+            filtro_metadata["carrera"] = query.carrera.strip()
 
         # 3. Configurar los parámetros de $vectorSearch
         vector_search_params = {

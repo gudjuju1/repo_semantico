@@ -18,13 +18,16 @@ const PublicSearch = () => {
   const [pageMode, setPageMode] = useState('default');
   const [tipoDocumento, setTipoDocumento] = useState('');
   const [periodoAcademico, setPeriodoAcademico] = useState('');
+  const [carrera, setCarrera] = useState('');
   const [periodos, setPeriodos] = useState([]);
+  const [carreras, setCarreras] = useState([]);
   const [hasNextPage, setHasNextPage] = useState(false);
 
   useEffect(() => {
     loadPeriodos();
+    loadCarreras();
     loadDefaultDocuments(1);
-  }, [tipoDocumento, periodoAcademico]);
+  }, [tipoDocumento, periodoAcademico, carrera]);
 
   useEffect(() => {
     if (pageMode === 'search') {
@@ -40,6 +43,15 @@ const PublicSearch = () => {
       setPeriodos(response.data?.periodos || []);
     } catch (err) {
       console.error('Periodos load error:', err);
+    }
+  };
+
+  const loadCarreras = async () => {
+    try {
+      const response = await api.get('/documents/carreras');
+      setCarreras(response.data?.carreras || []);
+    } catch (err) {
+      console.error('Carreras load error:', err);
     }
   };
 
@@ -59,6 +71,9 @@ const PublicSearch = () => {
       }
       if (periodoAcademico) {
         params.periodo_academico = periodoAcademico;
+      }
+      if (carrera) {
+        params.carrera = carrera;
       }
 
       const response = await api.get('/documents', { params });
@@ -104,6 +119,9 @@ const PublicSearch = () => {
       if (periodoAcademico) {
         body.periodo_academico = periodoAcademico;
       }
+      if (carrera) {
+        body.carrera = carrera;
+      }
 
       const response = await api.post('/search/semantic', body);
       const searchResults = response.data?.resultados || [];
@@ -127,6 +145,7 @@ const PublicSearch = () => {
     setQuery('');
     setTipoDocumento('');
     setPeriodoAcademico('');
+    setCarrera('');
     loadDefaultDocuments(1);
   };
 
@@ -212,6 +231,18 @@ const PublicSearch = () => {
                   </option>
                 ))}
               </select>
+              <select
+                value={carrera}
+                onChange={(e) => setCarrera(e.target.value)}
+                className="w-full rounded-2xl border border-dark-border bg-dark-bg px-4 py-4 text-text-main outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/30 appearance-none cursor-pointer"
+              >
+                <option value="">Todas las carreras</option>
+                {carreras.map((carreraOption) => (
+                  <option key={carreraOption} value={carreraOption} className="bg-dark-bg text-text-main">
+                    {carreraOption}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div className="flex gap-2">
@@ -255,7 +286,7 @@ const PublicSearch = () => {
                       {item.autores?.join(', ') || 'Autor desconocido'}
                     </p>
                     <p className="mt-1 text-sm text-text-main/70">
-                      Tutor: {item.tutor || 'N/A'} · {item.periodo_academico || 'Periodo no disponible'}
+                      Tutor: {item.tutor || 'N/A'} · {item.periodo_academico || 'Periodo no disponible'} · {item.carrera || 'Carrera no disponible'}
                     </p>
                   </div>
                   <div className="flex flex-shrink-0 items-center gap-3">

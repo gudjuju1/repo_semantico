@@ -9,6 +9,7 @@ class DocTegInf(BaseModel):
     tipo_documento: str  # "TEG" o "Informe"
     periodo_academico: str
     resumen: str
+    carrera: str
     # El enlace al PDF en Google Drive
     archivo_url: HttpUrl 
     # Mantenemos el vector para la búsqueda semántica
@@ -22,6 +23,7 @@ class DocTegInf(BaseModel):
                 "tutor": "Nombre del Tutor",
                 "tipo_documento": "TEG",
                 "periodo_academico": "2026-I",
+                "carrera": "Ingeniería Informática",
                 "resumen": "Este proyecto implementa búsqueda semántica...",
                 "archivo_url": "https://drive.google.com/file/d/12345/view"
             }
@@ -33,6 +35,30 @@ class Usuario(BaseModel):
     password_hash: str
     llave_seguridad_hash: str
     rol: str  # "admin" o "superadmin"
+
+
+class DocTegInfCreate(BaseModel):
+    titulo: str
+    autores: List[str]
+    tutor: str
+    tipo_documento: str
+    periodo_academico: str
+    carrera: str
+    resumen: str
+    archivo_url: HttpUrl
+    vector_embedding: Optional[List[float]] = Field(None, min_items=384, max_items=384)
+
+
+class DocTegInfUpdate(BaseModel):
+    titulo: Optional[str] = None
+    autores: Optional[List[str]] = None
+    tutor: Optional[str] = None
+    tipo_documento: Optional[str] = None
+    periodo_academico: Optional[str] = None
+    carrera: Optional[str] = None
+    resumen: Optional[str] = None
+    archivo_url: Optional[HttpUrl] = None
+    vector_embedding: Optional[List[float]] = None
 
     model_config = {
         "json_schema_extra": {

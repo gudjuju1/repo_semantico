@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import api from '../utils/axios';
+import { useToast } from '../contexts/ToastContext';
 
 const emptyDocumentForm = {
   titulo: '',
@@ -7,6 +8,7 @@ const emptyDocumentForm = {
   tutor: '',
   tipo_documento: 'TEG',
   periodo_academico: '',
+  carrera: '',
   resumen: '',
   file: null,
 };
@@ -42,7 +44,6 @@ const ITEMS_PER_PAGE = 10;
 const AdminPanel = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
 
   const [documents, setDocuments] = useState([]);
   const [periodos, setPeriodos] = useState([]);
@@ -50,6 +51,8 @@ const AdminPanel = () => {
   const [searchText, setSearchText] = useState('');
   const [filterType, setFilterType] = useState('');
   const [filterPeriod, setFilterPeriod] = useState('');
+  const [filterCareer, setFilterCareer] = useState('');
+  const [carreras, setCarreras] = useState([]);
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -60,15 +63,17 @@ const AdminPanel = () => {
   const [isControlKeyModalOpen, setIsControlKeyModalOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState(null);
   const [processingControlKey, setProcessingControlKey] = useState(false);
+  const { addToast } = useToast();
 
   useEffect(() => {
     loadDocuments();
     loadPeriodos();
+    loadCarreras();
   }, []);
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchText, filterType, filterPeriod]);
+  }, [searchText, filterType, filterPeriod, filterCareer]);
 
   const requestControlKey = (action) => {
     setPendingAction(() => action);
@@ -87,25 +92,29 @@ const AdminPanel = () => {
       setIsControlKeyModalOpen(false);
     } catch (error) {
       console.error('Control key action failed:', error);
-      // No cerramos el modal en caso de error para que el usuario pueda intentar de nuevo
+      addToast('No se pudo procesar la llave de control. Verifica y vuelve a intentarlo.');
     } finally {
       setProcessingControlKey(false);
     }
   };
 
   const loadDocuments = async () => {
-    setError('');
     setLoading(true);
     try {
+      const params = {
+        limit: 1000,
+      };
+      if (filterType) params.tipo_documento = filterType;
+      if (filterPeriod) params.periodo_academico = filterPeriod;
+      if (filterCareer) params.carrera = filterCareer;
+
       const response = await api.get('/documents', {
-        params: {
-          limit: 1000,
-        },
+        params,
       });
       setDocuments(response.data || []);
     } catch (err) {
       console.error('loadDocuments error', err);
-      setError('No se pudieron cargar los documentos.');
+      addToast('No se pudieron cargar los documentos.');
       setDocuments([]);
     } finally {
       setLoading(false);
@@ -122,6 +131,15 @@ const AdminPanel = () => {
     }
   };
 
+  const loadCarreras = async () => {
+    try {
+      const response = await api.get('/documents/carreras');
+      setCarreras(response.data?.carreras || []);
+    } catch (err) {
+      console.error('loadCarreras error', err);
+    }
+  };
+
   const filteredDocuments = useMemo(() => {
     const lowerText = searchText.toLowerCase().trim();
     return documents.filter((doc) => {
@@ -130,9 +148,10 @@ const AdminPanel = () => {
       const matchesText = !lowerText || title.includes(lowerText) || authors.includes(lowerText);
       const matchesType = !filterType || doc.tipo_documento === filterType;
       const matchesPeriod = !filterPeriod || doc.periodo_academico === filterPeriod;
-      return matchesText && matchesType && matchesPeriod;
+      const matchesCareer = !filterCareer || doc.carrera === filterCareer;
+      return matchesText && matchesType && matchesPeriod && matchesCareer;
     });
-  }, [documents, filterPeriod, filterType, searchText]);
+  }, [documents, filterPeriod, filterType, filterCareer, searchText]);
 
   const openAddModal = () => {
     setFormState(emptyDocumentForm);
@@ -148,6 +167,7 @@ const AdminPanel = () => {
       tutor: doc.tutor || '',
       tipo_documento: doc.tipo_documento || 'TEG',
       periodo_academico: doc.periodo_academico || '',
+      carrera: doc.carrera || '',
       resumen: doc.resumen || '',
       file: null,
     });
@@ -175,6 +195,7 @@ const AdminPanel = () => {
       formData.append('tutor', formState.tutor);
       formData.append('tipo_documento', formState.tipo_documento);
       formData.append('periodo_academico', formState.periodo_academico);
+      formData.append('carrera', formState.carrera);
       formData.append('resumen', formState.resumen);
       if (formState.file) {
         formData.append('file', formState.file);
@@ -189,13 +210,14 @@ const AdminPanel = () => {
       loadDocuments();
     } catch (err) {
       console.error('add document error', err);
-      setError('No se pudo agregar el documento.');
+      addToast(parseErrorDetail(err, 'No se pudo agregar el documento.'));
     } finally {
       setSaving(false);
     }
   };
 
   const handleAddClick = (event) => {
+
     event.preventDefault();
     requestControlKey((controlKey) => handleAddSubmit(event, controlKey));
   };
@@ -211,6 +233,7 @@ const AdminPanel = () => {
       updatedForm.append('tutor', formState.tutor);
       updatedForm.append('tipo_documento', formState.tipo_documento);
       updatedForm.append('periodo_academico', formState.periodo_academico);
+      updatedForm.append('carrera', formState.carrera);
       updatedForm.append('resumen', formState.resumen);
       if (formState.file) {
         updatedForm.append('file', formState.file);
@@ -225,7 +248,7 @@ const AdminPanel = () => {
       loadDocuments();
     } catch (err) {
       console.error('edit document error', err);
-      setError('No se pudo actualizar el documento.');
+      addToast(parseErrorDetail(err, 'No se pudo actualizar el documento.'));
     } finally {
       setSaving(false);
     }
@@ -247,7 +270,7 @@ const AdminPanel = () => {
       loadDocuments();
     } catch (err) {
       console.error('delete document error', err);
-      setError('No se pudo eliminar el documento.');
+      addToast(parseErrorDetail(err, 'No se pudo eliminar el documento.'));
     } finally {
       setLoading(false);
     }
@@ -334,9 +357,6 @@ const AdminPanel = () => {
             </div>
           </section>
 
-          {error && (
-            <div className="rounded-3xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-400">{error}</div>
-          )}
 
           <section className="space-y-5">
               <div className="grid gap-4 lg:grid-cols-[1.5fr_1fr_1fr]">
@@ -371,6 +391,18 @@ const AdminPanel = () => {
                     </option>
                   ))}
                 </select>
+                <select
+                  value={filterCareer}
+                  onChange={(e) => setFilterCareer(e.target.value)}
+                  className="rounded-2xl border border-dark-border bg-dark-bg px-4 py-3 text-text-main outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/30"
+                >
+                  <option value="">Todas las carreras</option>
+                  {carreras.map((carrera) => (
+                    <option key={carrera} value={carrera} className="bg-dark-bg text-text-main">
+                      {carrera}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div className="overflow-x-auto rounded-3xl border border-dark-border bg-dark-card shadow-lg">
@@ -382,19 +414,20 @@ const AdminPanel = () => {
                       <th className="px-4 py-3">Tutor</th>
                       <th className="px-4 py-3">Tipo</th>
                       <th className="px-4 py-3">Periodo</th>
+                      <th className="px-4 py-3">Carrera</th>
                       <th className="px-4 py-3">Acciones</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-dark-border">
                     {loading ? (
                       <tr>
-                        <td colSpan={6} className="px-4 py-10 text-center text-text-main/70">
+                        <td colSpan={7} className="px-4 py-10 text-center text-text-main/70">
                           Cargando documentos...
                         </td>
                       </tr>
                     ) : filteredDocuments.length === 0 ? (
                       <tr>
-                        <td colSpan={6} className="px-4 py-10 text-center text-text-main/70">
+                        <td colSpan={7} className="px-4 py-10 text-center text-text-main/70">
                           No se encontraron documentos.
                         </td>
                       </tr>
@@ -406,6 +439,7 @@ const AdminPanel = () => {
                           <td className="px-4 py-3 text-text-main/80">{doc.tutor || '-'}</td>
                           <td className="px-4 py-3 text-text-main/80">{doc.tipo_documento || '-'}</td>
                           <td className="px-4 py-3 text-text-main/80">{doc.periodo_academico || '-'}</td>
+                          <td className="px-4 py-3 text-text-main/80">{doc.carrera || '-'}</td>
                           <td className="px-4 py-3">
                             <div className="flex flex-wrap gap-2">
                               <a
@@ -512,17 +546,16 @@ const AdminPanel = () => {
                     required
                   />
                 </label>
-              </div>
-
               <label className="space-y-2 text-sm text-text-main">
-                <span>Resumen</span>
-                <textarea
-                  value={formState.resumen}
-                  onChange={(e) => handleFormChange('resumen', e.target.value)}
-                  className="min-h-30 w-full resize-none rounded-2xl border border-dark-border bg-dark-bg px-4 py-3 text-text-main outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/30"
+                <span>Carrera</span>
+                <input
+                  value={formState.carrera}
+                  onChange={(e) => handleFormChange('carrera', e.target.value)}
+                  className="w-full rounded-2xl border border-dark-border bg-dark-bg px-4 py-3 text-text-main outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/30"
                   required
                 />
               </label>
+              </div>
 
               <label className="space-y-2 text-sm text-text-main">
                 <span>Seleccionar archivo:</span>

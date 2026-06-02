@@ -31,6 +31,7 @@ async def upload_document(
     tutor: str = Form(...),
     tipo_documento: str = Form(...),
     periodo_academico: str = Form(...),
+    carrera: str = Form(...),
     resumen: str = Form(...),
     file: UploadFile = File(...),
     x_control_key: str = Header(...),
@@ -79,6 +80,7 @@ async def upload_document(
             "tutor": tutor,
             "tipo_documento": tipo_documento,
             "periodo_academico": periodo_academico,
+            "carrera": carrera,
             "resumen": resumen,
             "archivo_url": drive_res['link'],
             "drive_file_id": drive_res['file_id'],
@@ -138,6 +140,7 @@ async def update_document(
     tutor: Optional[str] = Form(None),
     tipo_documento: Optional[str] = Form(None),
     periodo_academico: Optional[str] = Form(None),
+    carrera: Optional[str] = Form(None),
     resumen: Optional[str] = Form(None),
     file: Optional[UploadFile] = File(None),
     x_control_key: str = Header(...),
@@ -165,6 +168,7 @@ async def update_document(
     if tutor is not None: update_dict["tutor"] = tutor
     if tipo_documento is not None: update_dict["tipo_documento"] = tipo_documento
     if periodo_academico is not None: update_dict["periodo_academico"] = periodo_academico
+    if carrera is not None: update_dict["carrera"] = carrera
     if resumen is not None: update_dict["resumen"] = resumen
 
     # 3. Si hay un archivo nuevo, actualizar en Drive
@@ -218,7 +222,8 @@ async def list_documents(
     offset: int = Query(0, ge=0),
     limit: int = Query(1000, ge=1),
     tipo_documento: Optional[str] = Query(None),
-    periodo_academico: Optional[str] = Query(None)
+    periodo_academico: Optional[str] = Query(None),
+    carrera: Optional[str] = Query(None)
 ):
     # Construir filtro dinámico
     filtro = {}
@@ -226,6 +231,8 @@ async def list_documents(
         filtro["tipo_documento"] = tipo_documento
     if periodo_academico:
         filtro["periodo_academico"] = periodo_academico
+    if carrera:
+        filtro["carrera"] = carrera
 
     cursor = doc_teg_inf_collection.find(filtro, {"vector_embedding": 0})
     documentos = []
@@ -239,6 +246,12 @@ async def list_periodos():
     periodos = await doc_teg_inf_collection.distinct("periodo_academico")
     cleaned = [p for p in periodos if p]
     return {"periodos": sorted(cleaned)}
+
+@router.get("/carreras")
+async def list_carreras():
+    carreras = await doc_teg_inf_collection.distinct("carrera")
+    cleaned = [c for c in carreras if c]
+    return {"carreras": sorted(cleaned)}
 
 @router.get("/audit-logs")
 async def list_audit_logs(current_user: dict = Depends(require_superadmin)):
