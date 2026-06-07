@@ -19,7 +19,6 @@ class UsuarioCreate(BaseModel):
 
 class UsuarioUpdate(BaseModel):
     nombre: Optional[str] = None
-    correo: Optional[EmailStr] = None
     password: Optional[str] = None
     llave_seguridad: Optional[str] = None
 
@@ -52,7 +51,7 @@ async def create_user(
 
     existe = await usuarios_collection.find_one({"correo": user.correo})
     if existe:
-        raise HTTPException(status_code=400, detail="El correo ya está registrado")
+        raise HTTPException(status_code=400, detail="El correo electrónico ya está registrado")
     
     usuario_db = {
         "nombre": user.nombre,
@@ -95,6 +94,7 @@ async def update_user(
 
     update_dict = update.dict(exclude_unset=True)
     update_dict.pop("rol", None)  # Protegemos el rol
+    update_dict.pop("correo", None)  # No permitir cambio de correo por actualización
 
     if "password" in update_dict:
         update_dict["password_hash"] = hash_password(update_dict.pop("password"))

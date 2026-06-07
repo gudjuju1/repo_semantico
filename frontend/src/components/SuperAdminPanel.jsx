@@ -404,7 +404,6 @@ const SuperAdminPanel = () => {
     try {
       const payload = {
         nombre: userFormState.nombre,
-        correo: userFormState.correo,
       };
 
       if (userFormState.password) {
@@ -991,6 +990,7 @@ const SuperAdminPanel = () => {
                     type="email"
                     value={userFormState.correo}
                     onChange={(e) => handleUserFormChange('correo', e.target.value)}
+                    readOnly={isUserEditMode}
                     className="w-full rounded-2xl border border-dark-border bg-dark-bg px-4 py-3 text-text-main outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/30"
                     required
                   />
