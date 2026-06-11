@@ -22,6 +22,15 @@ class DocumentoAcademicoUpdate(BaseModel):
     resumen: Optional[str] = None
     archivo_url: Optional[HttpUrl] = None
 
+def _sort_periodo_academico_key(periodo_academico: Optional[str]) -> tuple[int, int]:
+    if not periodo_academico or '-' not in periodo_academico:
+        return (0, 0)
+
+    term, year = periodo_academico.split('-', 1)
+    term_rank = 2 if term == 'II' else 1 if term == 'I' else 0
+    year_rank = int(year) if year.isdigit() else 0
+    return (year_rank, term_rank)
+
 # --- ENDPOINTS ---
 
 @router.post("/upload")
@@ -236,10 +245,16 @@ async def list_documents(
 
     cursor = doc_teg_inf_collection.find(filtro, {"vector_embedding": 0})
     documentos = []
-    async for doc in cursor.skip(offset).limit(limit):
+    async for doc in cursor:
         doc["id"] = str(doc.pop("_id"))
         documentos.append(doc)
-    return documentos
+
+    documentos.sort(
+        key=lambda doc: _sort_periodo_academico_key(doc.get("periodo_academico")),
+        reverse=True,
+    )
+
+    return documentos[offset:offset + limit]
 
 @router.get("/periodos")
 async def list_periodos():

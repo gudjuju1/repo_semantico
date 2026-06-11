@@ -22,7 +22,40 @@ const PublicSearch = () => {
   const [carrera, setCarrera] = useState('');
   const [periodos, setPeriodos] = useState([]);
   const [carreras, setCarreras] = useState([]);
+  const [selectedDocument, setSelectedDocument] = useState(null);
+
+  const sortByPeriodoAcademic = (list) => {
+    const termOrder = { I: 1, II: 2 };
+    return [...list].sort((a, b) => {
+      const [termA = '', yearA = '0'] = (a?.periodo_academico || '').split('-');
+      const [termB = '', yearB = '0'] = (b?.periodo_academico || '').split('-');
+      const yearDiff = Number(yearB) - Number(yearA);
+      if (yearDiff !== 0) return yearDiff;
+      return (termOrder[termB] || 0) - (termOrder[termA] || 0);
+    });
+  };
+
+  const sortPeriodos = (list) => {
+    const termOrder = { I: 1, II: 2 };
+    return [...list].sort((a, b) => {
+      const [termA = '', yearA = '0'] = (a || '').split('-');
+      const [termB = '', yearB = '0'] = (b || '').split('-');
+      const yearDiff = Number(yearB) - Number(yearA);
+      if (yearDiff !== 0) return yearDiff;
+      return (termOrder[termB] || 0) - (termOrder[termA] || 0);
+    });
+  };
   const [hasNextPage, setHasNextPage] = useState(false);
+
+  useEffect(() => {
+    const setVh = () => {
+      document.documentElement.style.setProperty('--vh', `${window.innerHeight * 0.01}px`);
+    };
+
+    setVh();
+    window.addEventListener('resize', setVh);
+    return () => window.removeEventListener('resize', setVh);
+  }, []);
 
   useEffect(() => {
     loadPeriodos();
@@ -41,7 +74,7 @@ const PublicSearch = () => {
   const loadPeriodos = async () => {
     try {
       const response = await api.get('/documents/periodos');
-      setPeriodos(response.data?.periodos || []);
+      setPeriodos(sortPeriodos(response.data?.periodos || []));
     } catch (err) {
       console.error('Periodos load error:', err);
     }
@@ -61,10 +94,8 @@ const PublicSearch = () => {
     setError('');
 
     try {
-      const offset = (page - 1) * PAGE_SIZE;
       const params = {
-        offset,
-        limit: PAGE_SIZE + 1,
+        limit: 1000,
       };
 
       if (tipoDocumento) {
@@ -78,13 +109,12 @@ const PublicSearch = () => {
       }
 
       const response = await api.get('/documents', { params });
-
-      const documents = response.data || [];
-      const pageData = documents.slice(0, PAGE_SIZE);
-      setResults(pageData);
+      const documents = sortByPeriodoAcademic(response.data || []);
+      const pageData = documents.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+      setResults(documents);
       setVisibleResults(pageData);
       setPageMode('default');
-      setHasNextPage(documents.length > PAGE_SIZE);
+      setHasNextPage(documents.length > page * PAGE_SIZE);
       setCurrentPage(page);
     } catch (err) {
       console.error('Default documents error:', err);
@@ -254,42 +284,63 @@ const PublicSearch = () => {
             </div>
 
             <div className="grid gap-4 md:grid-cols-3">
-              <select
-                value={tipoDocumento}
-                onChange={(e) => setTipoDocumento(e.target.value)}
-                className="w-full rounded-2xl border border-dark-border bg-dark-bg px-4 py-4 text-text-main outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/30 appearance-none cursor-pointer"
-              >
-                {DOCUMENT_TYPES.map((option) => (
-                  <option key={option.value} value={option.value} className="bg-dark-bg text-text-main">
-                    {option.label}
-                  </option>
-                ))}
-              </select>
+              <div className="relative">
+                <select
+                  value={tipoDocumento}
+                  onChange={(e) => setTipoDocumento(e.target.value)}
+                  className="w-full rounded-2xl border border-dark-border bg-dark-bg px-4 py-4 pr-12 text-text-main outline-none transition duration-200 ease-in-out hover:border-primary/40 hover:ring-primary/10 focus:border-primary focus:ring-2 focus:ring-primary/30 hover:no-underline appearance-none cursor-pointer"
+                >
+                  {DOCUMENT_TYPES.map((option) => (
+                    <option key={option.value} value={option.value} className="bg-dark-bg text-text-main">
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+                <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-text-main/50">
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </span>
+              </div>
 
-              <select
-                value={periodoAcademico}
-                onChange={(e) => setPeriodoAcademico(e.target.value)}
-                className="w-full rounded-2xl border border-dark-border bg-dark-bg px-4 py-4 text-text-main outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/30 appearance-none cursor-pointer"
-              >
-                <option value="">Todos los periodos</option>
-                {periodos.map((periodo) => (
-                  <option key={periodo} value={periodo} className="bg-dark-bg text-text-main">
-                    {periodo}
-                  </option>
-                ))}
-              </select>
-              <select
-                value={carrera}
-                onChange={(e) => setCarrera(e.target.value)}
-                className="w-full rounded-2xl border border-dark-border bg-dark-bg px-4 py-4 text-text-main outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/30 appearance-none cursor-pointer"
-              >
-                <option value="">Todas las carreras</option>
-                {carreras.map((carreraOption) => (
-                  <option key={carreraOption} value={carreraOption} className="bg-dark-bg text-text-main">
-                    {carreraOption}
-                  </option>
-                ))}
-              </select>
+              <div className="relative">
+                <select
+                  value={periodoAcademico}
+                  onChange={(e) => setPeriodoAcademico(e.target.value)}
+                  className="w-full rounded-2xl border border-dark-border bg-dark-bg px-4 py-4 pr-12 text-text-main outline-none transition duration-200 ease-in-out hover:border-primary/40 hover:ring-primary/10 focus:border-primary focus:ring-2 focus:ring-primary/30 hover:no-underline appearance-none cursor-pointer"
+                >
+                  <option value="">Todos los periodos</option>
+                  {periodos.map((periodo) => (
+                    <option key={periodo} value={periodo} className="bg-dark-bg text-text-main">
+                      {periodo}
+                    </option>
+                  ))}
+                </select>
+                <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-text-main/50">
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </span>
+              </div>
+              <div className="relative">
+                <select
+                  value={carrera}
+                  onChange={(e) => setCarrera(e.target.value)}
+                  className="w-full rounded-2xl border border-dark-border bg-dark-bg px-4 py-4 pr-12 text-text-main outline-none transition duration-200 ease-in-out hover:border-primary/40 hover:ring-primary/10 focus:border-primary focus:ring-2 focus:ring-primary/30 hover:no-underline appearance-none cursor-pointer"
+                >
+                  <option value="">Todas las carreras</option>
+                  {carreras.map((carreraOption) => (
+                    <option key={carreraOption} value={carreraOption} className="bg-dark-bg text-text-main">
+                      {carreraOption}
+                    </option>
+                  ))}
+                </select>
+                <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-text-main/50">
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </span>
+              </div>
             </div>
 
             <div className="grid gap-2 sm:grid-cols-3">
@@ -334,9 +385,15 @@ const PublicSearch = () => {
               >
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between w-full">
                   <div className="min-w-0 flex-1">
-                    <h2 className="text-2xl font-semibold text-text-main leading-tight line-clamp-2 overflow-hidden" title={item.titulo}>
-                      {item.titulo}
-                    </h2>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedDocument(item)}
+                      className="text-left w-full"
+                    >
+                      <h2 className="text-2xl font-semibold text-text-main leading-tight line-clamp-2 overflow-hidden" title={item.titulo}>
+                        {item.titulo}
+                      </h2>
+                    </button>
                     <p className="mt-2 text-sm text-text-main/80 truncate">
                       {item.autores?.join(', ') || 'Autor desconocido'}
                     </p>
@@ -347,7 +404,7 @@ const PublicSearch = () => {
                   <div className="flex flex-shrink-0 items-center gap-3">
                     {pageMode === 'search' && searchType === 'semantic' && (
                       <span className="rounded-full border border-dark-border bg-black/20 px-3 py-1 text-sm text-text-main/80">
-                        {Math.round((item.score ?? 0) * 100)}%
+                        Similitud de {Math.round((item.score ?? 0) * 100)}%
                       </span>
                     )}
                     <a
@@ -372,6 +429,78 @@ const PublicSearch = () => {
             </div>
           )}
         </div>
+
+        {selectedDocument && (
+          <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 px-4 py-6 sm:px-6 sm:py-8">
+            <div className="mx-auto my-4 w-full max-w-4xl overflow-hidden rounded-4xl border border-dark-border bg-dark-card shadow-2xl sm:my-8">
+              <div className="max-h-[calc(var(--vh)*100-140px)] min-h-0 overflow-y-auto">
+                <div className="flex flex-col gap-4 border-b border-dark-border px-4 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+                  <div>
+                    <p className="text-sm uppercase tracking-[0.25em] text-primary/80">Detalle del documento</p>
+                    <h3 className="mt-2 text-2xl font-bold text-text-main sm:text-3xl">{selectedDocument.titulo}</h3>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedDocument(null)}
+                    className="rounded-2xl border border-dark-border bg-black/20 px-4 py-2 text-sm font-semibold text-text-main transition hover:border-primary hover:text-primary"
+                  >
+                    Cerrar
+                  </button>
+                </div>
+                <div className="px-4 py-5 text-text-main/90 sm:px-6">
+                  <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-3">
+                    <p className="text-sm text-text-main/70">Autores</p>
+                    <p className="rounded-2xl bg-black/10 p-4 text-sm">{selectedDocument.autores?.join(', ') || 'Autor desconocido'}</p>
+                  </div>
+                  <div className="space-y-3">
+                    <p className="text-sm text-text-main/70">Tutor</p>
+                    <p className="rounded-2xl bg-black/10 p-4 text-sm">{selectedDocument.tutor || 'N/A'}</p>
+                  </div>
+                  <div className="space-y-3">
+                    <p className="text-sm text-text-main/70">Tipo de documento</p>
+                    <p className="rounded-2xl bg-black/10 p-4 text-sm">{selectedDocument.tipo_documento || 'N/A'}</p>
+                  </div>
+                  <div className="space-y-3">
+                    <p className="text-sm text-text-main/70">Periodo académico</p>
+                    <p className="rounded-2xl bg-black/10 p-4 text-sm">{selectedDocument.periodo_academico || 'No disponible'}</p>
+                  </div>
+                  <div className="space-y-3 md:col-span-2">
+                    <p className="text-sm text-text-main/70">Carrera</p>
+                    <p className="rounded-2xl bg-black/10 p-4 text-sm">{selectedDocument.carrera || 'No disponible'}</p>
+                  </div>
+                </div>
+                </div>
+                <div className="mt-6 space-y-3 px-4 pb-6 sm:px-6">
+                  <p className="text-sm text-text-main/70">Resumen completo</p>
+                  <p className="rounded-2xl bg-black/10 p-4 text-sm whitespace-pre-line">{selectedDocument.resumen || 'Sin resumen disponible.'}</p>
+                </div>
+                {pageMode === 'search' && searchType === 'semantic' && (
+                  <div className="mt-6 inline-flex items-center gap-2 rounded-2xl bg-black/10 px-4 py-3 text-sm text-text-main/80 sm:px-6">
+                    Similitud de {Math.round((selectedDocument.score ?? 0) * 100)}%
+                  </div>
+                )}
+                <div className="mt-6 flex flex-col gap-3 px-6 pb-6 sm:px-6 sm:flex-row sm:flex-wrap">
+                  <a
+                    href={selectedDocument.archivo_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex w-full items-center justify-center rounded-2xl bg-primary px-5 py-3 text-sm font-bold text-dark-bg transition hover:scale-[1.02] sm:w-auto"
+                  >
+                    Ver documento completo
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedDocument(null)}
+                    className="inline-flex w-full items-center justify-center rounded-2xl border border-dark-border bg-black/20 px-5 py-3 text-sm font-semibold text-text-main transition hover:border-primary hover:text-primary sm:w-auto"
+                  >
+                    Cerrar vista
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="mt-8 flex items-center justify-between gap-3 rounded-3xl border border-dark-border bg-dark-card px-6 py-5 text-text-main">
           <button

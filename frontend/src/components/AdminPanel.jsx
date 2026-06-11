@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useRef } from 'react';
 import api from '../utils/axios';
 import { useToast } from '../contexts/ToastContext';
 
@@ -39,6 +39,16 @@ const parseErrorDetail = (err, defaultMsg) => {
 };
 
 const DOCUMENT_TYPES = ['', 'TEG', 'INF PASANTIA'];
+const SELECT_CLASS = "w-full rounded-2xl border border-dark-border bg-dark-bg px-4 py-3 pr-12 text-text-main outline-none transition duration-200 ease-in-out hover:border-primary/40 hover:ring-primary/10 focus:border-primary focus:ring-2 focus:ring-primary/30 hover:no-underline appearance-none";
+const CAREER_OPTIONS = [
+  'INGENIERÍA DE MANTENIMIENTO MENCIÓN INDUSTRIAL',
+  'INGENIERÍA DE SISTEMAS',
+  'INGENIERÍA DEL AMBIENTE Y DE LOS RECURSOS NATURALES',
+  'INGENIERÍA EN INFORMÁTICA',
+];
+const CURRENT_YEAR = new Date().getFullYear();
+const ACADEMIC_YEARS = Array.from({ length: CURRENT_YEAR - 1900 + 1 }, (_, i) => String(CURRENT_YEAR - i));
+const ACADEMIC_TERMS = ['I', 'II'];
 const ITEMS_PER_PAGE = 10;
 
 const AdminPanel = () => {
@@ -54,6 +64,28 @@ const AdminPanel = () => {
   const [filterCareer, setFilterCareer] = useState('');
   const [carreras, setCarreras] = useState([]);
 
+  const sortByPeriodoAcademic = (list) => {
+    const termOrder = { I: 1, II: 2 };
+    return [...list].sort((a, b) => {
+      const [termA = '', yearA = '0'] = (a?.periodo_academico || '').split('-');
+      const [termB = '', yearB = '0'] = (b?.periodo_academico || '').split('-');
+      const yearDiff = Number(yearB) - Number(yearA);
+      if (yearDiff !== 0) return yearDiff;
+      return (termOrder[termB] || 0) - (termOrder[termA] || 0);
+    });
+  };
+
+  const sortPeriodos = (list) => {
+    const termOrder = { I: 1, II: 2 };
+    return [...list].sort((a, b) => {
+      const [termA = '', yearA = '0'] = (a || '').split('-');
+      const [termB = '', yearB = '0'] = (b || '').split('-');
+      const yearDiff = Number(yearB) - Number(yearA);
+      if (yearDiff !== 0) return yearDiff;
+      return (termOrder[termB] || 0) - (termOrder[termA] || 0);
+    });
+  };
+
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [formState, setFormState] = useState(emptyDocumentForm);
@@ -64,11 +96,43 @@ const AdminPanel = () => {
   const [pendingAction, setPendingAction] = useState(null);
   const [processingControlKey, setProcessingControlKey] = useState(false);
   const { addToast } = useToast();
+  const [showYearMenu, setShowYearMenu] = useState(false);
+  const yearMenuRef = useRef(null);
+
+  const splitPeriodoAcademico = (periodo) => {
+    if (!periodo) return { term: '', year: '' };
+    const parts = (periodo || '').split('-');
+    const term = parts[0] || '';
+    const year = parts[1] || '';
+    return { term, year };
+  };
+
+  const updatePeriodoAcademico = (year, term) => {
+    if (!year) {
+      setFormState((prev) => ({ ...prev, periodo_academico: '' }));
+      return;
+    }
+    const t = term || 'I';
+    setFormState((prev) => ({
+      ...prev,
+      periodo_academico: `${t}-${year}`,
+    }));
+  };
 
   useEffect(() => {
     loadDocuments();
     loadPeriodos();
     loadCarreras();
+  }, []);
+
+  useEffect(() => {
+    const onDocClick = (e) => {
+      if (yearMenuRef.current && !yearMenuRef.current.contains(e.target)) {
+        setShowYearMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', onDocClick);
+    return () => document.removeEventListener('mousedown', onDocClick);
   }, []);
 
   useEffect(() => {
@@ -111,7 +175,7 @@ const AdminPanel = () => {
       const response = await api.get('/documents', {
         params,
       });
-      setDocuments(response.data || []);
+      setDocuments(sortByPeriodoAcademic(response.data || []));
     } catch (err) {
       console.error('loadDocuments error', err);
       addToast('No se pudieron cargar los documentos.');
@@ -125,7 +189,7 @@ const AdminPanel = () => {
   const loadPeriodos = async () => {
     try {
       const response = await api.get('/documents/periodos');
-      setPeriodos(response.data?.periodos || []);
+      setPeriodos(sortPeriodos(response.data?.periodos || []));
     } catch (err) {
       console.error('loadPeriodos error', err);
     }
@@ -207,7 +271,9 @@ const AdminPanel = () => {
         },
       });
       closeModals();
-      loadDocuments();
+      await loadDocuments();
+      await loadPeriodos();
+      await loadCarreras();
     } catch (err) {
       console.error('add document error', err);
       addToast(parseErrorDetail(err, 'No se pudo agregar el documento.'));
@@ -245,7 +311,9 @@ const AdminPanel = () => {
         },
       });
       closeModals();
-      loadDocuments();
+      await loadDocuments();
+      await loadPeriodos();
+      await loadCarreras();
     } catch (err) {
       console.error('edit document error', err);
       addToast(parseErrorDetail(err, 'No se pudo actualizar el documento.'));
@@ -267,7 +335,9 @@ const AdminPanel = () => {
           'x-control-key': controlKey,
         },
       });
-      loadDocuments();
+      await loadDocuments();
+      await loadPeriodos();
+      await loadCarreras();
     } catch (err) {
       console.error('delete document error', err);
       addToast(parseErrorDetail(err, 'No se pudo eliminar el documento.'));
@@ -283,7 +353,7 @@ const AdminPanel = () => {
   const totalDocumentPages = Math.ceil(filteredDocuments.length / ITEMS_PER_PAGE);
   const paginatedDocuments = filteredDocuments.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
 
-
+  const selectedPeriodo = splitPeriodoAcademico(formState.periodo_academico);
 
   const renderPagination = (totalPages) => {
     if (totalPages <= 1) return null;
@@ -359,7 +429,7 @@ const AdminPanel = () => {
 
 
           <section className="space-y-5">
-              <div className="grid gap-4 lg:grid-cols-[1.5fr_1fr_1fr]">
+              <div className="grid gap-4 lg:grid-cols-[1.5fr_1fr_1fr_1fr]">
                 <input
                   type="text"
                   value={searchText}
@@ -367,42 +437,63 @@ const AdminPanel = () => {
                   placeholder="Buscar documentos"
                   className="rounded-2xl border border-dark-border bg-dark-bg px-4 py-3 text-text-main outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/30"
                 />
-                <select
-                  value={filterType}
-                  onChange={(e) => setFilterType(e.target.value)}
-                  className="rounded-2xl border border-dark-border bg-dark-bg px-4 py-3 text-text-main outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/30"
-                >
-                  <option value="">Todos los tipos</option>
-                  {DOCUMENT_TYPES.filter((type) => type).map((type) => (
-                    <option key={type} value={type} className="bg-dark-bg text-text-main">
-                      {type}
-                    </option>
-                  ))}
-                </select>
-                <select
-                  value={filterPeriod}
-                  onChange={(e) => setFilterPeriod(e.target.value)}
-                  className="rounded-2xl border border-dark-border bg-dark-bg px-4 py-3 text-text-main outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/30"
-                >
-                  <option value="">Todos los periodos</option>
-                  {periodos.map((periodo) => (
-                    <option key={periodo} value={periodo} className="bg-dark-bg text-text-main">
-                      {periodo}
-                    </option>
-                  ))}
-                </select>
-                <select
-                  value={filterCareer}
-                  onChange={(e) => setFilterCareer(e.target.value)}
-                  className="rounded-2xl border border-dark-border bg-dark-bg px-4 py-3 text-text-main outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/30"
-                >
-                  <option value="">Todas las carreras</option>
-                  {carreras.map((carrera) => (
-                    <option key={carrera} value={carrera} className="bg-dark-bg text-text-main">
-                      {carrera}
-                    </option>
-                  ))}
-                </select>
+                <div className="relative">
+                  <select
+                    value={filterType}
+                    onChange={(e) => setFilterType(e.target.value)}
+                    className={SELECT_CLASS}
+                  >
+                    <option value="">Todos los tipos</option>
+                    {DOCUMENT_TYPES.filter((type) => type).map((type) => (
+                      <option key={type} value={type} className="bg-dark-bg text-text-main">
+                        {type}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-text-main/50">
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </span>
+                </div>
+                <div className="relative">
+                  <select
+                    value={filterPeriod}
+                    onChange={(e) => setFilterPeriod(e.target.value)}
+                    className={SELECT_CLASS}
+                  >
+                    <option value="">Todos los periodos</option>
+                    {periodos.map((periodo) => (
+                      <option key={periodo} value={periodo} className="bg-dark-bg text-text-main">
+                        {periodo}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-text-main/50">
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </span>
+                </div>
+                <div className="relative">
+                  <select
+                    value={filterCareer}
+                    onChange={(e) => setFilterCareer(e.target.value)}
+                    className={SELECT_CLASS}
+                  >
+                    <option value="">Todas las carreras</option>
+                    {carreras.map((carrera) => (
+                      <option key={carrera} value={carrera} className="bg-dark-bg text-text-main">
+                        {carrera}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-text-main/50">
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </span>
+                </div>
               </div>
 
               <div className="overflow-x-auto rounded-3xl border border-dark-border bg-dark-card shadow-lg">
@@ -471,8 +562,8 @@ const AdminPanel = () => {
       </div>
 
       {(isAddModalOpen || isEditModalOpen) && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 py-6">
-          <div className="w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-3xl border border-dark-border bg-dark-card p-6 shadow-2xl custom-scrollbar">
+        <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/60 px-4 pt-2 pb-12">
+          <div className="w-full max-w-3xl max-h-[90vh] overflow-visible rounded-3xl border border-dark-border bg-dark-card p-6 shadow-2xl custom-scrollbar">
             <div className="mb-6 flex items-center justify-between">
               <div>
                 <h2 className="text-2xl font-semibold text-text-main">
@@ -493,82 +584,154 @@ const AdminPanel = () => {
               </button>
             </div>
 
-            <form onSubmit={isEditModalOpen ? handleEditClick : handleAddClick} className="space-y-4">
-              <div className="grid gap-4 lg:grid-cols-2">
-                <label className="space-y-2 text-sm text-text-main">
-                  <span>Título</span>
-                  <input
-                    value={formState.titulo}
-                    onChange={(e) => handleFormChange('titulo', e.target.value)}
-                    className="w-full rounded-2xl border border-dark-border bg-dark-bg px-4 py-3 text-text-main outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/30"
-                    required
-                  />
-                </label>
-                <label className="space-y-2 text-sm text-text-main">
-                  <span>Autores</span>
-                  <input
-                    value={formState.autores}
-                    onChange={(e) => handleFormChange('autores', e.target.value)}
-                    className="w-full rounded-2xl border border-dark-border bg-dark-bg px-4 py-3 text-text-main outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/30"
-                    placeholder="Autor A, Autor B"
-                    required
-                  />
-                </label>
+            <div className="flex flex-col max-h-[70vh]">
+              <div className="overflow-auto pr-2">
+                <form onSubmit={isEditModalOpen ? handleEditClick : handleAddClick} className="space-y-4">
+                  <div className="grid gap-4">
+                    <label className="space-y-2 text-sm text-text-main">
+                      <span>Título</span>
+                      <input
+                        value={formState.titulo}
+                        onChange={(e) => handleFormChange('titulo', e.target.value)}
+                        className="w-full rounded-2xl border border-dark-border bg-dark-bg px-4 py-3 text-text-main outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/30"
+                        required
+                      />
+                    </label>
+                    <label className="space-y-2 text-sm text-text-main">
+                      <span>Autores</span>
+                      <input
+                        value={formState.autores}
+                        onChange={(e) => handleFormChange('autores', e.target.value)}
+                        className="w-full rounded-2xl border border-dark-border bg-dark-bg px-4 py-3 text-text-main outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/30"
+                        placeholder="Autor A, Autor B"
+                        required
+                      />
+                    </label>
+                  </div>
+
+                  <div className="grid gap-4">
+                    <label className="space-y-2 text-sm text-text-main">
+                      <span>Tutor</span>
+                      <input
+                        value={formState.tutor}
+                        onChange={(e) => handleFormChange('tutor', e.target.value)}
+                        className="w-full rounded-2xl border border-dark-border bg-dark-bg px-4 py-3 text-text-main outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/30"
+                        required
+                      />
+                    </label>
+                    <label className="space-y-2 text-sm text-text-main">
+                      <span>Tipo de documento</span>
+                      <div className="relative">
+                        <select
+                          value={formState.tipo_documento}
+                          onChange={(e) => handleFormChange('tipo_documento', e.target.value)}
+                          className={SELECT_CLASS}
+                        >
+                          <option value="TEG">TEG</option>
+                          <option value="INF PASANTIA">INF PASANTIA</option>
+                        </select>
+                        <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-text-main/50">
+                          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </span>
+                      </div>
+                    </label>
+                    <label className="space-y-2 text-sm text-text-main">
+                      <span>Periodo académico</span>
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        <div className="relative">
+                          <div ref={yearMenuRef} className="relative">
+                            <button
+                              type="button"
+                              onClick={() => setShowYearMenu((s) => !s)}
+                              className={`${SELECT_CLASS} relative text-left`}
+                            >
+                              <span className="block pr-8">{selectedPeriodo.year || 'Selecciona año'}</span>
+                              <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-text-main/50">
+                                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                                </svg>
+                              </span>
+                            </button>
+                            {showYearMenu && (
+                              <ul className="absolute left-0 top-full mt-2 z-50 max-h-64 w-full overflow-auto rounded-md border border-dark-border bg-dark-card shadow-lg">
+                                {ACADEMIC_YEARS.map((year) => (
+                                  <li key={year}>
+                                    <button
+                                      type="button"
+                                      onClick={() => { updatePeriodoAcademico(year, selectedPeriodo.term); setShowYearMenu(false); }}
+                                      className="w-full px-3 py-2 text-left text-text-main hover:bg-dark-bg/50"
+                                    >
+                                      {year}
+                                    </button>
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
+                          </div>
+                        </div>
+                        <div className="relative">
+                          <select
+                            value={selectedPeriodo.term || ''}
+                            onChange={(e) => updatePeriodoAcademico(selectedPeriodo.year, e.target.value)}
+                            className={SELECT_CLASS}
+                            required
+                          >
+                            <option value="">Selecciona periodo</option>
+                            {selectedPeriodo.year && ACADEMIC_TERMS.map((term) => (
+                              <option key={term} value={term}>
+                                {term} - {selectedPeriodo.year}
+                              </option>
+                            ))}
+                          </select>
+                          <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-text-main/50">
+                            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                            </svg>
+                          </span>
+                        </div>
+                      </div>
+                    </label>
+                    <label className="space-y-2 text-sm text-text-main">
+                      <span>Carrera</span>
+                      <div className="relative">
+                        <select
+                          value={formState.carrera}
+                          onChange={(e) => handleFormChange('carrera', e.target.value)}
+                          className={SELECT_CLASS}
+                          required
+                        >
+                          <option value="">Selecciona una carrera</option>
+                          {CAREER_OPTIONS.map((carrera) => (
+                            <option key={carrera} value={carrera}>
+                              {carrera}
+                            </option>
+                          ))}
+                        </select>
+                        <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-text-main/50">
+                          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </span>
+                      </div>
+                    </label>
+                  </div>
+
+                  <label className="space-y-2 text-sm text-text-main">
+                    <span>Seleccionar archivo:</span>
+                    <input
+                      type="file"
+                      accept="application/pdf"
+                      onChange={(e) => handleFormChange('file', e.target.files?.[0] || null)}
+                      className="w-full rounded-2xl border border-dark-border bg-dark-bg px-4 py-3 text-text-main outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/30 file:hidden"
+                      {...(!isEditModalOpen ? { required: true } : {})}
+                    />
+                  </label>
+                </form>
               </div>
 
-              <div className="grid gap-4 lg:grid-cols-3">
-                <label className="space-y-2 text-sm text-text-main">
-                  <span>Tutor</span>
-                  <input
-                    value={formState.tutor}
-                    onChange={(e) => handleFormChange('tutor', e.target.value)}
-                    className="w-full rounded-2xl border border-dark-border bg-dark-bg px-4 py-3 text-text-main outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/30"
-                    required
-                  />
-                </label>
-                <label className="space-y-2 text-sm text-text-main">
-                  <span>Tipo de documento</span>
-                  <select
-                    value={formState.tipo_documento}
-                    onChange={(e) => handleFormChange('tipo_documento', e.target.value)}
-                    className="w-full rounded-2xl border border-dark-border bg-dark-bg px-4 py-3 text-text-main outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/30"
-                  >
-                    <option value="TEG">TEG</option>
-                    <option value="INF PASANTIA">INF PASANTIA</option>
-                  </select>
-                </label>
-                <label className="space-y-2 text-sm text-text-main">
-                  <span>Periodo académico</span>
-                  <input
-                    value={formState.periodo_academico}
-                    onChange={(e) => handleFormChange('periodo_academico', e.target.value)}
-                    className="w-full rounded-2xl border border-dark-border bg-dark-bg px-4 py-3 text-text-main outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/30"
-                    required
-                  />
-                </label>
-              <label className="space-y-2 text-sm text-text-main">
-                <span>Carrera</span>
-                <input
-                  value={formState.carrera}
-                  onChange={(e) => handleFormChange('carrera', e.target.value)}
-                  className="w-full rounded-2xl border border-dark-border bg-dark-bg px-4 py-3 text-text-main outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/30"
-                  required
-                />
-              </label>
-              </div>
-
-              <label className="space-y-2 text-sm text-text-main">
-                <span>Seleccionar archivo:</span>
-                <input
-                  type="file"
-                  accept="application/pdf"
-                  onChange={(e) => handleFormChange('file', e.target.files?.[0] || null)}
-                  className="w-full rounded-2xl border border-dark-border bg-dark-bg px-4 py-3 text-text-main outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/30 file:hidden"
-                  {...(!isEditModalOpen ? { required: true } : {})}
-                />
-              </label>
-
-              <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
+              <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:justify-end">
                 <button
                   type="button"
                   onClick={closeModals}
@@ -577,22 +740,29 @@ const AdminPanel = () => {
                   Cancelar
                 </button>
                 <button
-                  type="submit"
+                  type="button"
+                  onClick={(e) => {
+                    const form = e.currentTarget.closest('.rounded-3xl')?.querySelector('form');
+                    if (form) {
+                      if (typeof form.requestSubmit === 'function') form.requestSubmit();
+                      else form.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+                    }
+                  }}
                   disabled={saving}
                   className="rounded-2xl bg-primary px-5 py-3 text-dark-bg transition hover:bg-opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {saving ? 'Guardando...' : isEditModalOpen ? 'Guardar cambios' : 'Crear documento'}
                 </button>
               </div>
-            </form>
+            </div>
           </div>
         </div>
       )}
 
 
       {isControlKeyModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 py-6">
-          <div className="w-full max-w-md max-h-[90vh] overflow-y-auto rounded-3xl border border-dark-border bg-dark-card p-6 shadow-2xl custom-scrollbar">
+        <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/60 px-4 pt-2 pb-12">
+          <div className="w-full max-w-md max-h-[90vh] overflow-visible rounded-3xl border border-dark-border bg-dark-card p-6 shadow-2xl custom-scrollbar">
             <div className="mb-6">
               <h2 className="text-xl font-semibold text-text-main">Verificación de Seguridad</h2>
               <p className="text-text-main/70 text-sm">
@@ -600,21 +770,25 @@ const AdminPanel = () => {
               </p>
             </div>
 
-            <form onSubmit={handleControlKeySubmit} className="space-y-4">
-              <label className="space-y-2 text-sm text-text-main">
-                <span>Llave de Control</span>
-                <input
-                  type="password"
-                  value={controlKey}
-                  onChange={(e) => setControlKey(e.target.value)}
-                  disabled={processingControlKey}
-                  className="w-full rounded-2xl border border-dark-border bg-dark-bg px-4 py-3 text-text-main outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/30 disabled:cursor-not-allowed disabled:opacity-50"
-                  placeholder="Ingresa tu PIN de seguridad"
-                  required
-                />
-              </label>
+            <div className="flex flex-col">
+              <div className="overflow-auto pr-2">
+                <form onSubmit={handleControlKeySubmit} className="space-y-4">
+                  <label className="space-y-2 text-sm text-text-main">
+                    <span>Llave de Control</span>
+                    <input
+                      type="password"
+                      value={controlKey}
+                      onChange={(e) => setControlKey(e.target.value)}
+                      disabled={processingControlKey}
+                      className="w-full rounded-2xl border border-dark-border bg-dark-bg px-4 py-3 text-text-main outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/30 disabled:cursor-not-allowed disabled:opacity-50"
+                      placeholder="Ingresa tu PIN de seguridad"
+                      required
+                    />
+                  </label>
+                </form>
+              </div>
 
-              <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
+              <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:justify-end">
                 <button
                   type="button"
                   onClick={() => {
@@ -631,14 +805,21 @@ const AdminPanel = () => {
                   Cancelar
                 </button>
                 <button
-                  type="submit"
+                  type="button"
+                  onClick={(e) => {
+                    const form = e.currentTarget.closest('.rounded-3xl')?.querySelector('form');
+                    if (form) {
+                      if (typeof form.requestSubmit === 'function') form.requestSubmit();
+                      else form.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+                    }
+                  }}
                   disabled={processingControlKey}
                   className="rounded-2xl bg-primary px-5 py-3 text-dark-bg transition hover:bg-opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {processingControlKey ? 'Procesando...' : 'Confirmar'}
                 </button>
               </div>
-            </form>
+            </div>
           </div>
         </div>
       )}
