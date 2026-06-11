@@ -109,6 +109,13 @@ const SuperAdminPanel = () => {
     });
   };
 
+  const normalizeSearchText = (text) =>
+    (text || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .trim();
+
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [formState, setFormState] = useState(emptyDocumentForm);
@@ -268,16 +275,17 @@ const SuperAdminPanel = () => {
   };
 
   const filteredDocuments = useMemo(() => {
-    const lowerText = searchText.toLowerCase().trim();
-    return documents.filter((doc) => {
-      const title = (doc.titulo || '').toLowerCase();
-      const authors = (doc.autores || []).join(', ').toLowerCase();
+    const lowerText = normalizeSearchText(searchText);
+    const filtered = documents.filter((doc) => {
+      const title = normalizeSearchText(doc.titulo);
+      const authors = normalizeSearchText((doc.autores || []).join(', '));
       const matchesText = !lowerText || title.includes(lowerText) || authors.includes(lowerText);
       const matchesType = !filterType || doc.tipo_documento === filterType;
       const matchesPeriod = !filterPeriod || doc.periodo_academico === filterPeriod;
       const matchesCareer = !filterCareer || doc.carrera === filterCareer;
       return matchesText && matchesType && matchesPeriod && matchesCareer;
     });
+    return sortByPeriodoAcademic(filtered);
   }, [documents, filterPeriod, filterType, filterCareer, searchText]);
 
   const openAddModal = () => {

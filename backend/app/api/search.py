@@ -1,4 +1,5 @@
 from typing import Optional
+import re
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from app.db.session import doc_teg_inf_collection
@@ -13,6 +14,30 @@ class SearchQuery(BaseModel):
     tipo_documento: Optional[str] = None
     periodo_academico: Optional[str] = None
     carrera: Optional[str] = None
+
+ACCENT_EQUIVALENTS = {
+    'a': 'aáàäâãåā',
+    'e': 'eéèëêē',
+    'i': 'iíìïîī',
+    'o': 'oóòöôõō',
+    'u': 'uúùüûū',
+    'n': 'nñ',
+    'c': 'cç',
+    'y': 'yýÿ',
+}
+
+def build_accent_insensitive_regex(text: str) -> str:
+    escaped = re.escape(text)
+    parts = []
+    for ch in escaped:
+        lower = ch.lower()
+        if lower in ACCENT_EQUIVALENTS:
+            equivalents = ACCENT_EQUIVALENTS[lower]
+            chars = ''.join(sorted(set(equivalents + equivalents.upper())))
+            parts.append(f'[{chars}]')
+        else:
+            parts.append(ch)
+    return ''.join(parts)
 
 @router.post("/semantic")
 async def semantic_search(
@@ -110,6 +135,16 @@ async def text_search(query: SearchQuery):
                 {"resumen": {"$regex": consulta, "$options": "i"}},
                 {"autores": {"$regex": consulta, "$options": "i"}},
                 {"tutor": {"$regex": consulta, "$options": "i"}}
+            ]
+        }
+
+        pattern = build_accent_insensitive_regex(consulta)
+        regex_filter = {
+            "$or": [
+                {"titulo": {"$regex": pattern, "$options": "i"}},
+                {"resumen": {"$regex": pattern, "$options": "i"}},
+                {"autores": {"$regex": pattern, "$options": "i"}},
+                {"tutor": {"$regex": pattern, "$options": "i"}}
             ]
         }
 

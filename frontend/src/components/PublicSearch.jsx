@@ -200,7 +200,7 @@ const PublicSearch = () => {
       }
 
       const response = await api.post('/search/text', body);
-      const textResults = response.data?.resultados || [];
+      const textResults = sortByPeriodoAcademic(response.data?.resultados || []);
       setResults(textResults);
       setCurrentPage(1);
       setPageMode('search');
