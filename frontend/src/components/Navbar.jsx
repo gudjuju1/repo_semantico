@@ -31,14 +31,7 @@ const Navbar = () => {
                 Salir
               </button>
             </div>
-          ) : (
-            <Link
-              to="/login"
-              className="bg-primary text-dark-bg px-6 py-2 rounded-xl font-black text-sm hover:scale-105 active:scale-95 transition-all shadow-lg shadow-primary/20"
-            >
-              ENTRAR
-            </Link>
-          )}
+          ) : null}
         </div>
 
         {/* Botón de Administración (Central en desktop, abajo en móvil) */}
