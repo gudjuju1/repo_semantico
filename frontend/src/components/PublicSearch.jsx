@@ -273,7 +273,7 @@ const PublicSearch = () => {
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 type="search"
-                placeholder="Buscar Documentos por tema..."
+                placeholder="Buscar Documentos"
                 className="w-full rounded-2xl border border-dark-border bg-dark-bg pl-12 pr-5 py-4 text-text-main outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/30"
               />
               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-text-main/40">

@@ -420,7 +420,7 @@ const AdminPanel = () => {
               <div>
                 <h1 className="text-2xl font-semibold text-text-main">Documentos</h1>
                 <p className="text-text-main/70">
-                  Gestion y controlde documentos.
+                  Gestion y control de documentos.
                 </p>
               </div>
               <div>
