@@ -140,12 +140,7 @@ async def text_search(query: SearchQuery):
 
         pattern = build_accent_insensitive_regex(consulta)
         regex_filter = {
-            "$or": [
-                {"titulo": {"$regex": pattern, "$options": "i"}},
-                {"resumen": {"$regex": pattern, "$options": "i"}},
-                {"autores": {"$regex": pattern, "$options": "i"}},
-                {"tutor": {"$regex": pattern, "$options": "i"}}
-            ]
+            "titulo": {"$regex": pattern, "$options": "i"}
         }
 
         query_filter = regex_filter if not filtro_metadata else {"$and": [regex_filter, filtro_metadata]}
